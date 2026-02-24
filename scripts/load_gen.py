@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Simple SET/GET load generator for Redis vs Dragonfly throughput demo.
+SET/GET load generator for Redis vs Dragonfly throughput demo.
+Works with Redis, Dragonfly, or any Redis-compatible server.
 Usage: python load_gen.py [host] [port] [ops] [workers]
   Default: localhost 6379 100000 50
-Example: python load_gen.py localhost 6379 100000 50
 """
 import os
 import sys

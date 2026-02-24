@@ -8,9 +8,10 @@ services:
     container_name: dragonfly-demo
     ulimits:
       memlock: -1
-    command: ["dragonfly", "--logtostderr", "--dbnum", "1"]
+    command: ["dragonfly", "--logtostderr", "--dbnum", "1", "--admin_port", "9999"]
     ports:
       - "6379:6379"
+      - "9999:9999"
     volumes:
       - redis_data:/data
 

@@ -38,12 +38,15 @@ Optional: `LOAD_DEMO_OPS=100000 LOAD_DEMO_WORKERS=50` to make the built-in run h
 
 ### Run the load manually
 
-```bash
-# From repo root, with venv active
-python scripts/load_gen.py localhost 6379 100000 50
-```
+Works with **Redis, Dragonfly, or any Redis-compatible server.**
 
-Default: 100k ops, 50 threads. Optional args: `[host] [port] [ops] [workers]`.
+```bash
+# From repo root, with venv active (default: localhost 6379, 100k ops, 50 workers)
+python scripts/load_gen.py localhost 6379 100000 50
+
+# Other deployment:
+python scripts/load_gen.py <host> <port> [ops] [workers]
+```
 
 ### What you say (engineers)
 
@@ -143,7 +146,9 @@ then: **fewer VMs**, less operational complexity, lower cloud bill, smaller blas
 
 | Demo | Command / action | Message |
 |------|------------------|--------|
-| 1 – Throughput | `python scripts/load_gen.py` on Redis, then on Dragonfly | Same code, more throughput |
+| 1 – Throughput | `python scripts/load_gen.py` on Redis, then on Dragonfly (or any Redis-compatible server) | Same code, more throughput |
 | 2 – Scale without cluster | `redis-benchmark -n 1000000 -c 500 -P 32` + `top` | Vertical scale, fewer shards |
-| 3 – Memory | `redis-benchmark -t set -n 5000000 -d 256` + `INFO memory` | Compact layout, less fragmentation |
+| 3 – Memory | `redis-benchmark -t set -n 5000000 -d 256` + `INFO memory` or `python scripts/info_stats.py` | Compact layout, less fragmentation |
 | 4 – OpsView | `./scale_out.sh 10` with 1 then 10 workers | Datastore isn’t the bottleneck |
+
+**Requests per second (no redis-cli):** `python scripts/info_stats.py [host] [port]` — works with Redis or Dragonfly.

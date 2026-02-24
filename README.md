@@ -42,7 +42,7 @@ USE_DRAGONFLY=1 RUN_LOAD_DEMO=1 ./start_demo.sh   # Dragonfly
 2. `./stop_demo.sh`, then `USE_DRAGONFLY=1 RUN_LOAD_DEMO=1 ./start_demo.sh` → Dragonfly starts, same load runs, note ops/sec and compare.
 
 Or start the backend only: `docker compose -f docker-compose.yml -f docker-compose.dragonfly.yml up -d`.  
-Dragonfly HTTP console: http://localhost:6379 (RedisInsight is not started when using Dragonfly).
+Dragonfly HTTP console: http://localhost:6379. **Admin port** (status/metrics): http://localhost:9999/ and http://localhost:9999/metrics — Dragonfly only; Redis does not have this.
 
 ### 2. Python env
 
@@ -130,6 +130,8 @@ Stop all processes and clear Redis (stream, incidents, leaderboard) so the next 
 
 Then run `./start_demo.sh` for a fresh demo.
 
+**Other Redis deployments:** The app and scripts work with any Redis-compatible server. Set `REDIS_HOST`/`REDIS_PORT` or pass host/port to scripts (e.g. `python scripts/info_stats.py myredis 6379`). See DEPLOYMENT.md → “Other Redis deployments”.
+
 ## Layout
 
 ```
@@ -144,7 +146,8 @@ redis_demo/
   demo_reset.sh        # Stop all + clear Redis; then start_demo.sh for fresh run
   TALK_TRACK.md        # Exec view + talk track for engineers and execs
   DEMO_STYLE.md        # Redis vs Dragonfly demos (throughput, scale, memory, cost)
-  scripts/load_gen.py  # SET/GET load generator for throughput demo
+  scripts/load_gen.py  # SET/GET load generator (works with Redis or Dragonfly)
+  scripts/info_stats.py # INFO stats / requests per sec (works with Redis or Dragonfly)
   producer.py          # Simulated events → ops:events stream
   worker.py            # Consumer group → incidents + leaderboard + pub/sub
   api.py               # /health, /stats, /top, /incidents

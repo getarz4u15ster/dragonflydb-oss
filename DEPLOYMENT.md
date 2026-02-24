@@ -24,6 +24,24 @@
 | **Redis** | `localhost:6379` (or host `redis`, port `6379` from Docker network) |
 | **Dragonfly** | Same port `6379` when using `USE_DRAGONFLY=1`; HTTP console at http://localhost:6379 |
 
+**Scripts and app work with both.** All Python scripts and the demo use the Redis protocol, so they work with Redis, Dragonfly, or any Redis-compatible server. Use `REDIS_HOST` / `REDIS_PORT` or script args to point at a different instance (e.g. another Redis deployment).
+
+### Dragonfly-only (admin port)
+
+When using Dragonfly (`USE_DRAGONFLY=1`), the admin port is exposed. **Redis does not have this**; with Redis use RedisInsight or the scripts below.
+
+### Dragonfly admin port (when using USE_DRAGONFLY=1)
+
+- **Status page (keys, memory, uptime):** http://localhost:9999/ — human-readable dashboard. If it looks blank, external CSS/JS may be blocked; try in a private window or use the script below.
+- **Prometheus metrics:** http://localhost:9999/metrics — plain text for scraping. Browsers may show it blank or as raw text; use `curl http://localhost:9999/metrics` or Prometheus to read it.
+
+### Requests per second
+
+Works with **Redis, Dragonfly, or any Redis-compatible server** (uses standard `INFO stats`).
+
+- **Recommended:** `python scripts/info_stats.py` — prints `instantaneous_ops_per_sec` and `total_commands_processed` (no browser, no redis-cli).
+- **Other host/port:** `python scripts/info_stats.py <host> <port>` or `REDIS_HOST=... REDIS_PORT=... python scripts/info_stats.py`.
+
 ---
 
 ## Deploy
@@ -121,6 +139,18 @@ Then run `./start_demo.sh` again.
 
 ---
 
+## Other Redis deployments
+
+The demo and scripts work with **any Redis-compatible server** (Redis, Dragonfly, Valkey, etc.). To use a different host/port:
+
+- **App:** Set `REDIS_HOST` and `REDIS_PORT` when starting (e.g. `REDIS_HOST=myredis REDIS_PORT=6379 ./start_demo.sh`). Do not start Docker; point at your existing instance.
+- **Load generator:** `python scripts/load_gen.py <host> <port> [ops] [workers]` (e.g. `python scripts/load_gen.py myredis 6379 100000 50`).
+- **INFO stats (requests/sec):** `python scripts/info_stats.py <host> <port>` (e.g. `python scripts/info_stats.py myredis 6379`).
+
+Dragonfly-only URLs (http://localhost:9999/, http://localhost:9999/metrics) do **not** apply to Redis or other deployments; use RedisInsight for Redis or the scripts above.
+
+---
+
 ## RedisInsight setup
 
 1. Open http://localhost:5540  
@@ -133,6 +163,8 @@ Then run `./start_demo.sh` again.
 
 | Variable    | Default    | Description        |
 |-------------|------------|--------------------|
-| `REDIS_HOST` | `localhost` | Redis host        |
-| `REDIS_PORT` | `6379`      | Redis port        |
+| `REDIS_HOST` | `localhost` | Redis/Dragonfly host (app and scripts) |
+| `REDIS_PORT` | `6379`      | Redis/Dragonfly port |
 | `CONSUMER`   | `worker-1`  | Worker consumer name |
+| `USE_DRAGONFLY` | *(unset)* | If set, start/stop use Dragonfly instead of Redis |
+| `RUN_LOAD_DEMO` | *(unset)* | If set, run load gen at startup (Demo 1) |
