@@ -1,0 +1,23 @@
+# Override to use Dragonfly instead of Redis (Redis API compatible).
+# Run: docker compose -f docker-compose.yml -f docker-compose.dragonfly.yml up -d
+# See README for start_demo.sh with Dragonfly.
+
+services:
+  redis:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    container_name: dragonfly-demo
+    ulimits:
+      memlock: -1
+    command: ["dragonfly", "--logtostderr", "--dbnum", "1"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # RedisInsight is for Redis; with Dragonfly use the built-in HTTP console at http://localhost:6379
+  redisinsight:
+    profiles:
+      - redis
+
+volumes:
+  redis_data:

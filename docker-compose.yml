@@ -1,0 +1,20 @@
+services:
+  redis:
+    image: redis:7.4
+    container_name: redis-demo
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]  # durability for the demo
+    volumes:
+      - redis_data:/data
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight-demo
+    ports:
+      - "5540:5540"
+    depends_on:
+      - redis
+
+volumes:
+  redis_data:

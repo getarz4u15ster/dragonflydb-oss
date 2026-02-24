@@ -1,0 +1,13 @@
+# Runtime
+*.pid
+logs/
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
