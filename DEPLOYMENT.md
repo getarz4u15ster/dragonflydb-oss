@@ -168,3 +168,6 @@ Dragonfly-only URLs (http://localhost:9999/, http://localhost:9999/metrics) do *
 | `CONSUMER`   | `worker-1`  | Worker consumer name |
 | `USE_DRAGONFLY` | *(unset)* | If set, start/stop use Dragonfly instead of Redis |
 | `RUN_LOAD_DEMO` | *(unset)* | If set, run load gen at startup (Demo 1) |
+| `LOAD_DEMO_OPS` | `200000`   | Ops for built-in Demo 1 run (tuned for differentiation) |
+| `LOAD_DEMO_WORKERS` | `100` | Worker threads for built-in Demo 1 run |
+| `LOAD_DEMO_VALUE_SIZE` | `256` | Value size in bytes for built-in Demo 1 run |

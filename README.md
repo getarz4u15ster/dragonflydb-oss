@@ -29,7 +29,7 @@ docker compose up -d
 USE_DRAGONFLY=1 ./start_demo.sh
 ```
 
-**Demo 1 (throughput) built in:** run a quick load at startup and see ops/sec:
+**Demo 1 (throughput) built in:** run a load at startup tuned to show Redis vs Dragonfly differentiation (200k ops, 100 workers, 256B values). See [DEMO_STYLE.md](DEMO_STYLE.md) for why light load (~77 ops/sec) shows no difference.
 
 ```bash
 RUN_LOAD_DEMO=1 ./start_demo.sh              # Redis
@@ -40,6 +40,8 @@ USE_DRAGONFLY=1 RUN_LOAD_DEMO=1 ./start_demo.sh   # Dragonfly
 
 1. `RUN_LOAD_DEMO=1 ./start_demo.sh` → Redis starts, load runs, note ops/sec.
 2. `./stop_demo.sh`, then `USE_DRAGONFLY=1 RUN_LOAD_DEMO=1 ./start_demo.sh` → Dragonfly starts, same load runs, note ops/sec and compare.
+
+**TL;DR:** Use `start_demo.sh` for everything. Set `RUN_LOAD_DEMO=1` for the comparison; optionally `LOAD_DEMO_OPS` and `LOAD_DEMO_WORKERS` for a heavier run (e.g. `LOAD_DEMO_OPS=2000000 LOAD_DEMO_WORKERS=256`).
 
 Or start the backend only: `docker compose -f docker-compose.yml -f docker-compose.dragonfly.yml up -d`.  
 Dragonfly HTTP console: http://localhost:6379. **Admin port** (status/metrics): http://localhost:9999/ and http://localhost:9999/metrics — Dragonfly only; Redis does not have this.

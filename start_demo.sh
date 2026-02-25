@@ -16,12 +16,14 @@ if command -v docker >/dev/null 2>&1; then
     fi
     echo "  Waiting for server to be ready..."
     sleep 3
-    # Demo 1: optional quick throughput run (RUN_LOAD_DEMO=1)
+    # Demo 1: optional throughput run (RUN_LOAD_DEMO=1)
     if [ -n "${RUN_LOAD_DEMO:-}" ]; then
       echo ""
-      echo "Demo 1: quick throughput run..."
-      LOAD_OPS="${LOAD_DEMO_OPS:-20000}"
-      LOAD_WORKERS="${LOAD_DEMO_WORKERS:-20}"
+      echo "Demo 1: throughput run (use heavy defaults to see Redis vs Dragonfly differentiation)..."
+      LOAD_OPS="${LOAD_DEMO_OPS:-200000}"
+      LOAD_WORKERS="${LOAD_DEMO_WORKERS:-100}"
+      LOAD_VAL="${LOAD_DEMO_VALUE_SIZE:-256}"
+      export LOAD_VALUE_SIZE="$LOAD_VAL"
       "$VENV/python" scripts/load_gen.py localhost 6379 "$LOAD_OPS" "$LOAD_WORKERS" || true
       echo ""
     fi
@@ -36,9 +38,11 @@ if command -v docker >/dev/null 2>&1; then
     sleep 3
     if [ -n "${RUN_LOAD_DEMO:-}" ]; then
       echo ""
-      echo "Demo 1: quick throughput run..."
-      LOAD_OPS="${LOAD_DEMO_OPS:-20000}"
-      LOAD_WORKERS="${LOAD_DEMO_WORKERS:-20}"
+      echo "Demo 1: throughput run..."
+      LOAD_OPS="${LOAD_DEMO_OPS:-200000}"
+      LOAD_WORKERS="${LOAD_DEMO_WORKERS:-100}"
+      LOAD_VAL="${LOAD_DEMO_VALUE_SIZE:-256}"
+      export LOAD_VALUE_SIZE="$LOAD_VAL"
       "$VENV/python" scripts/load_gen.py localhost 6379 "$LOAD_OPS" "$LOAD_WORKERS" || true
       echo ""
     fi
@@ -49,9 +53,10 @@ else
   echo "Docker not found; assuming Redis/Dragonfly is already running on localhost:6379"
   if [ -n "${RUN_LOAD_DEMO:-}" ]; then
     echo ""
-    echo "Demo 1: quick throughput run..."
-    LOAD_OPS="${LOAD_DEMO_OPS:-20000}"
-    LOAD_WORKERS="${LOAD_DEMO_WORKERS:-20}"
+    echo "Demo 1: throughput run..."
+    LOAD_OPS="${LOAD_DEMO_OPS:-200000}"
+    LOAD_WORKERS="${LOAD_DEMO_WORKERS:-100}"
+    export LOAD_VALUE_SIZE="${LOAD_DEMO_VALUE_SIZE:-256}"
     "$VENV/python" scripts/load_gen.py localhost 6379 "$LOAD_OPS" "$LOAD_WORKERS" || true
     echo ""
   fi
