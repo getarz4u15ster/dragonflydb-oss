@@ -24,17 +24,21 @@ Use this when you want to show **“Same app. More throughput. No code change.�
 
 ### Built into start_demo.sh
 
-A **throughput run** runs automatically at startup when you set `RUN_LOAD_DEMO=1`. Defaults are tuned to show differentiation (200k ops, 100 workers, 256B values):
+A **throughput run** runs automatically at startup when you set `RUN_LOAD_DEMO=1` (Python load gen) or `RUN_LOAD_DEMO=benchmark` (redis-benchmark via `scripts/run_benchmark.py`). Python default: 500k ops, 256 workers (~30–60 sec). The Python load gen can still show Redis winning; for a clearer Dragonfly win use `RUN_LOAD_DEMO=benchmark` (requires redis-benchmark on PATH, e.g. `brew install redis`). Each mode writes summary JSON to `logs/`; use the matching compare script after one run per backend.
 
 ```bash
-# Redis: start demo + run load (targets thousands of ops/sec)
+# Python load: writes logs/load_redis.json, logs/load_dragonfly.json → compare with compare_load_runs.py
 RUN_LOAD_DEMO=1 ./start_demo.sh
-
-# Dragonfly: same load, compare ops/sec
 USE_DRAGONFLY=1 RUN_LOAD_DEMO=1 ./start_demo.sh
+python scripts/compare_load_runs.py
+
+# Benchmark: writes logs/benchmark_redis.json, logs/benchmark_dragonfly.json → compare with compare_benchmark_runs.py
+RUN_LOAD_DEMO=benchmark ./start_demo.sh
+USE_DRAGONFLY=1 RUN_LOAD_DEMO=benchmark ./start_demo.sh
+python scripts/compare_benchmark_runs.py
 ```
 
-Optional: `LOAD_DEMO_OPS=500000`, `LOAD_DEMO_WORKERS=200`, `LOAD_DEMO_VALUE_SIZE=1024`. For a quick light run: `LOAD_DEMO_OPS=20000 LOAD_DEMO_WORKERS=20`.
+Optional: `LOAD_DEMO_OPS=2000000` or `5000000` with 256–500 workers for heavier (longer) runs. For a quicker run: `LOAD_DEMO_OPS=200000 LOAD_DEMO_WORKERS=100`.
 
 ### Why you need enough load to see differentiation
 
@@ -46,7 +50,7 @@ At low throughput (e.g. ~77 ops/sec), **there is no observable difference** betw
 - **Test larger values** — `LOAD_DEMO_VALUE_SIZE=256` or `1024` (bytes per value).
 - **Optionally introduce memory pressure** — fill memory and observe eviction/behavior (see Demo 3).
 
-The built-in Demo 1 run uses **200k ops, 100 workers, 256-byte values** by default so you get meaningful throughput.
+The built-in run uses **500k ops, 256 workers** so the demo finishes in ~30–60 sec. With the Python client, Redis may still win; for a **clear Dragonfly win** use redis-benchmark (next section).
 
 ### If you want to expose real differences
 
@@ -82,14 +86,11 @@ You need a test that **forces parallelism** and **keeps the client from being th
 | **Requests** | Millions (steady-state measurement) |
 | **Comparison** | Same dataset and command mix on both |
 
-**redis-benchmark** (C client, multi-threaded, ideal for this):
+**If Redis keeps winning with the Python load gen:** the client can be the bottleneck. Use **RUN_LOAD_DEMO=benchmark** so the start script runs `scripts/run_benchmark.py` (redis-benchmark), writes `logs/benchmark_redis.json` and `logs/benchmark_dragonfly.json`, then run `python scripts/compare_benchmark_runs.py`. For a heavier benchmark (e.g. more clients):
 
 ```bash
-# 256 clients, 2M requests, SET+GET — same command twice (Redis then Dragonfly)
-redis-benchmark -c 256 -t get,set -n 2000000
-
-# Heavier: 1000 clients, 5M requests, pipelining
-redis-benchmark -c 1000 -t get,set -n 5000000 -P 16
+RUN_LOAD_DEMO=benchmark BENCHMARK_CLIENTS=500 ./start_demo.sh
+# then same with USE_DRAGONFLY=1, then compare_benchmark_runs.py
 ```
 
 **Python load_gen** (same idea: many concurrent clients, millions of ops):
@@ -104,17 +105,15 @@ python scripts/load_gen.py localhost 6379 5000000 500 256
 
 Run the **exact same** command against Redis, note time and ops/sec; then against Dragonfly. Same dataset and command mix — that’s when Dragonfly can clearly win.
 
+**Docker on Mac (e.g. M4):** Both backends run in a VM with limited CPU; Redis can still win at `-c 256`. Try `BENCHMARK_CLIENTS=500` or `1000` (e.g. `RUN_LOAD_DEMO=benchmark BENCHMARK_CLIENTS=500 ./start_demo.sh`) or run on Linux for a clearer Dragonfly advantage.
+
 ### Run the load manually
 
 Works with **Redis, Dragonfly, or any Redis-compatible server.**
 
-```bash
-# From repo root, with venv active (default: localhost 6379, 100k ops, 50 workers)
-python scripts/load_gen.py localhost 6379 100000 50
+**Python load gen:** `python scripts/load_gen.py [host] [port] [ops] [workers] [value_size]` — set `LOAD_RUN_LABEL=redis` or `dragonfly` to write `logs/load_<label>.json` for comparison.
 
-# Other deployment:
-python scripts/load_gen.py <host> <port> [ops] [workers]
-```
+**Benchmark:** `LOAD_RUN_LABEL=redis python scripts/run_benchmark.py [host] [port]` (then same with `dragonfly`). Writes `logs/benchmark_<label>.json`. Compare with `python scripts/compare_benchmark_runs.py`.
 
 ### What you say (engineers)
 
@@ -214,9 +213,11 @@ then: **fewer VMs**, less operational complexity, lower cloud bill, smaller blas
 
 | Demo | Command / action | Message |
 |------|------------------|--------|
-| 1 – Throughput | `python scripts/load_gen.py` on Redis, then on Dragonfly (or any Redis-compatible server) | Same code, more throughput |
+| 1 – Throughput | `RUN_LOAD_DEMO=1` or `RUN_LOAD_DEMO=benchmark` on Redis, then Dragonfly; then `compare_load_runs.py` or `compare_benchmark_runs.py` | Same code, more throughput |
 | 2 – Scale without cluster | `redis-benchmark -n 1000000 -c 500 -P 32` + `top` | Vertical scale, fewer shards |
 | 3 – Memory | `redis-benchmark -t set -n 5000000 -d 256` + `INFO memory` or `python scripts/info_stats.py` | Compact layout, less fragmentation |
 | 4 – OpsView | `./scale_out.sh 10` with 1 then 10 workers | Datastore isn’t the bottleneck |
+
+**Comparison scripts:** `python scripts/compare_load_runs.py` (Python load: reads `logs/load_redis.json`, `logs/load_dragonfly.json`). `python scripts/compare_benchmark_runs.py` (benchmark: reads `logs/benchmark_redis.json`, `logs/benchmark_dragonfly.json`). Both print which files they use.
 
 **Requests per second (no redis-cli):** `python scripts/info_stats.py [host] [port]` — works with Redis or Dragonfly.

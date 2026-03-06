@@ -29,19 +29,39 @@ docker compose up -d
 USE_DRAGONFLY=1 ./start_demo.sh
 ```
 
-**Demo 1 (throughput) built in:** run a load at startup tuned to show Redis vs Dragonfly differentiation (200k ops, 100 workers, 256B values). See [DEMO_STYLE.md](DEMO_STYLE.md) for why light load (~77 ops/sec) shows no difference.
+**Demo 1 (throughput) built in:** run a load at startup with `RUN_LOAD_DEMO=1` (Python load gen, ~30–60 sec) or `RUN_LOAD_DEMO=benchmark` (redis-benchmark; writes `logs/benchmark_redis.json` / `logs/benchmark_dragonfly.json` for comparison). Benchmark mode requires redis-benchmark on PATH (e.g. `brew install redis` on Mac).
 
 ```bash
-RUN_LOAD_DEMO=1 ./start_demo.sh              # Redis
-USE_DRAGONFLY=1 RUN_LOAD_DEMO=1 ./start_demo.sh   # Dragonfly
+RUN_LOAD_DEMO=1 ./start_demo.sh              # Redis (Python load gen)
+USE_DRAGONFLY=1 RUN_LOAD_DEMO=1 ./start_demo.sh   # Dragonfly (Python load gen)
+
+# Or use redis-benchmark (often shows Dragonfly winning):
+RUN_LOAD_DEMO=benchmark ./start_demo.sh
+USE_DRAGONFLY=1 RUN_LOAD_DEMO=benchmark ./start_demo.sh
 ```
 
 **Demo 1 flow (compare Redis vs Dragonfly):**
 
-1. `RUN_LOAD_DEMO=1 ./start_demo.sh` → Redis starts, load runs, note ops/sec.
-2. `./stop_demo.sh`, then `USE_DRAGONFLY=1 RUN_LOAD_DEMO=1 ./start_demo.sh` → Dragonfly starts, same load runs, note ops/sec and compare.
+1. Run load once on Redis, once on Dragonfly (same workload each time).
+2. Compare with the appropriate script (see below).
 
-**TL;DR:** Use `start_demo.sh` for everything. Set `RUN_LOAD_DEMO=1` for the comparison; optionally `LOAD_DEMO_OPS` and `LOAD_DEMO_WORKERS` for a heavier run (e.g. `LOAD_DEMO_OPS=2000000 LOAD_DEMO_WORKERS=256`).
+**TL;DR:** Use `start_demo.sh` for everything. Set `RUN_LOAD_DEMO=1` (Python load) or `RUN_LOAD_DEMO=benchmark` (redis-benchmark). After one run per backend, run the matching compare script. See DEMO_STYLE.md for when Dragonfly may win.
+
+**Comparison (Python load):** With `RUN_LOAD_DEMO=1`, each run writes `logs/load_redis.json` or `logs/load_dragonfly.json` and appends to `logs/load_runs.log`. After one Redis run and one Dragonfly run:
+
+```bash
+python scripts/compare_load_runs.py
+```
+
+The script prints which log files and timestamps it’s using. To compare specific runs: `python scripts/compare_load_runs.py path/to/load_redis.json path/to/load_dragonfly.json`.
+
+**Comparison (benchmark):** With `RUN_LOAD_DEMO=benchmark`, each run uses `scripts/run_benchmark.py` (redis-benchmark under the hood) and writes `logs/benchmark_redis.json` or `logs/benchmark_dragonfly.json`, and appends to `logs/benchmark_runs.log`. After one Redis run and one Dragonfly run:
+
+```bash
+python scripts/compare_benchmark_runs.py
+```
+
+Optional: `python scripts/compare_benchmark_runs.py path/to/benchmark_redis.json path/to/benchmark_dragonfly.json`. On Docker/Mac, Redis may still win at default 256 clients; try `BENCHMARK_CLIENTS=500` (see DEPLOYMENT.md).
 
 Or start the backend only: `docker compose -f docker-compose.yml -f docker-compose.dragonfly.yml up -d`.  
 Dragonfly HTTP console: http://localhost:6379. **Admin port** (status/metrics): http://localhost:9999/ and http://localhost:9999/metrics — Dragonfly only; Redis does not have this.
@@ -150,9 +170,12 @@ redis_demo/
   DEMO_STYLE.md        # Redis vs Dragonfly demos (throughput, scale, memory, cost)
   scripts/load_gen.py  # SET/GET load generator (works with Redis or Dragonfly)
   scripts/info_stats.py # INFO stats / requests per sec (works with Redis or Dragonfly)
+  scripts/compare_load_runs.py # Compare Python load logs (logs/load_redis.json vs load_dragonfly.json)
+  scripts/run_benchmark.py     # Run redis-benchmark and write logs/benchmark_<label>.json
+  scripts/compare_benchmark_runs.py # Compare benchmark logs (logs/benchmark_redis.json vs benchmark_dragonfly.json)
   producer.py          # Simulated events → ops:events stream
   worker.py            # Consumer group → incidents + leaderboard + pub/sub
   api.py               # /health, /stats, /top, /incidents
   dashboard.py         # Streamlit OpsView (auto-refresh)
-  logs/                # Logs when using start_demo.sh
+  logs/                # *.log (app logs); load_*.json, load_runs.log (Python load); benchmark_*.json, benchmark_runs.log (benchmark)
 ```

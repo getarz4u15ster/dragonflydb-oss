@@ -145,6 +145,7 @@ The demo and scripts work with **any Redis-compatible server** (Redis, Dragonfly
 
 - **App:** Set `REDIS_HOST` and `REDIS_PORT` when starting (e.g. `REDIS_HOST=myredis REDIS_PORT=6379 ./start_demo.sh`). Do not start Docker; point at your existing instance.
 - **Load generator:** `python scripts/load_gen.py <host> <port> [ops] [workers]` (e.g. `python scripts/load_gen.py myredis 6379 100000 50`).
+- **Benchmark (writes summary JSON):** `LOAD_RUN_LABEL=myredis python scripts/run_benchmark.py <host> <port>` — then compare with `python scripts/compare_benchmark_runs.py path1 path2`.
 - **INFO stats (requests/sec):** `python scripts/info_stats.py <host> <port>` (e.g. `python scripts/info_stats.py myredis 6379`).
 
 Dragonfly-only URLs (http://localhost:9999/, http://localhost:9999/metrics) do **not** apply to Redis or other deployments; use RedisInsight for Redis or the scripts above.
@@ -159,6 +160,17 @@ Dragonfly-only URLs (http://localhost:9999/, http://localhost:9999/metrics) do *
 
 ---
 
+## Demo 1: throughput comparison
+
+| Mode | Start with | Log files written | Compare with |
+|------|------------|-------------------|-------------|
+| Python load | `RUN_LOAD_DEMO=1` or `USE_DRAGONFLY=1 RUN_LOAD_DEMO=1` | `logs/load_redis.json`, `logs/load_dragonfly.json`, `logs/load_runs.log` | `python scripts/compare_load_runs.py` |
+| Benchmark | `RUN_LOAD_DEMO=benchmark` or `USE_DRAGONFLY=1 RUN_LOAD_DEMO=benchmark` | `logs/benchmark_redis.json`, `logs/benchmark_dragonfly.json`, `logs/benchmark_runs.log` | `python scripts/compare_benchmark_runs.py` |
+
+Run the same mode once on Redis and once on Dragonfly, then run the corresponding compare script. Both scripts print which log files they use. Requires redis-benchmark on PATH for benchmark mode (e.g. `brew install redis` on Mac).
+
+---
+
 ## Environment variables
 
 | Variable    | Default    | Description        |
@@ -167,7 +179,11 @@ Dragonfly-only URLs (http://localhost:9999/, http://localhost:9999/metrics) do *
 | `REDIS_PORT` | `6379`      | Redis/Dragonfly port |
 | `CONSUMER`   | `worker-1`  | Worker consumer name |
 | `USE_DRAGONFLY` | *(unset)* | If set, start/stop use Dragonfly instead of Redis |
-| `RUN_LOAD_DEMO` | *(unset)* | If set, run load gen at startup (Demo 1) |
-| `LOAD_DEMO_OPS` | `200000`   | Ops for built-in Demo 1 run (tuned for differentiation) |
-| `LOAD_DEMO_WORKERS` | `100` | Worker threads for built-in Demo 1 run |
+| `RUN_LOAD_DEMO` | *(unset)* | If set, run load at startup (Demo 1). Use `1` for Python load gen, or `benchmark` for redis-benchmark (needs redis-benchmark on PATH). |
+| `BENCHMARK_CLIENTS` | `256` | redis-benchmark `-c` when `RUN_LOAD_DEMO=benchmark`. Try `500` or `1000` if Dragonfly doesn’t win at 256. |
+| `BENCHMARK_REQUESTS` | `2000000` | redis-benchmark `-n` when `RUN_LOAD_DEMO=benchmark`. |
+| `BENCHMARK_LABEL` | *(set by start_demo)* | Label for benchmark summary file: `logs/benchmark_<label>.json`. Compare with `python scripts/compare_benchmark_runs.py`. |
+| `LOAD_DEMO_OPS` | `500000`   | Ops for built-in Demo 1 run (~30–60 sec); heavier runs may show Dragonfly winning |
+| `LOAD_DEMO_WORKERS` | `256` | Worker threads for built-in Demo 1 run |
 | `LOAD_DEMO_VALUE_SIZE` | `256` | Value size in bytes for built-in Demo 1 run |
+| `LOAD_RUN_LABEL` | *(auto)* | Set by start_demo: `redis` or `dragonfly` for load summary; writes `logs/load_<label>.json` and appends to `logs/load_runs.log`. Run `python scripts/compare_load_runs.py` after one run per backend to compare. |
