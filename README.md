@@ -1,181 +1,257 @@
-# Redis DevOps Demo
+# Dragonfly Ingestion Bridge POC
 
-**Story:** We ingest noisy DevOps telemetry, turn it into incidents, and keep an exec-friendly live view without losing data.
+**Deliverable for CashCache:** A self-contained package that demonstrates ingestion from Kafka into Dragonfly, a data model that supports **"last 10 trades" per security**, and a way to query and validate the data.
 
-| Redis feature      | Role in the demo                                      |
-|--------------------|--------------------------------------------------------|
-| **Streams**        | Durable event ingestion (not "best effort" like pubsub) |
-| **Consumer Groups**| Horizontal workers, failure recovery, pending work     |
-| **Hashes + TTL**   | Incident state store (fast, simple)                    |
-| **Sorted Sets**    | Live "Top noisy services" leaderboard                  |
-| **Pub/Sub**        | Push updates to UI/API (optional)                      |
+---
 
-## Quick start
+## What this POC does
 
-### 1. Start Redis + RedisInsight (or Dragonfly)
+1. **Ingestion** — Trade messages flow from a Kafka topic into Dragonfly via a small ingestion bridge.
+2. **Storage** — Dragonfly holds one sorted set per security (e.g. `trades:AAPL`), keeping only the last 10 trades by timestamp.
+3. **Validation** — You can query Dragonfly via REST API or `redis-cli` and see data per security.
 
-**Redis (default):**
+---
 
-```bash
-docker compose up -d
-```
+## Prerequisites
 
-- **Redis:** `localhost:6379`
-- **RedisInsight:** http://localhost:5540 → Add DB: host `redis`, port `6379` (or `localhost:6379` from host)
+- **Docker** and **Docker Compose** (v2+), installed and running on your machine.
 
-**Dragonfly (Redis-compatible alternative):** [Dragonfly](https://github.com/dragonflydb/dragonfly) is a drop-in Redis-compatible store. No app code changes. **scale_out.sh** and **scale_down.sh** work the same with Dragonfly.
+---
 
-```bash
-USE_DRAGONFLY=1 ./start_demo.sh
-```
+## Step 1 — Set up the environment
 
-**Demo 1 (throughput) built in:** run a load at startup with `RUN_LOAD_DEMO=1` (Python load gen, ~30–60 sec) or `RUN_LOAD_DEMO=benchmark` (redis-benchmark; writes `logs/benchmark_redis.json` / `logs/benchmark_dragonfly.json` for comparison). Benchmark mode requires redis-benchmark on PATH (e.g. `brew install redis` on Mac).
+1. Clone or unpack this repo and go to the project root:
+   ```bash
+   cd /path/to/redis_demo
+   ```
 
-```bash
-RUN_LOAD_DEMO=1 ./start_demo.sh              # Redis (Python load gen)
-USE_DRAGONFLY=1 RUN_LOAD_DEMO=1 ./start_demo.sh   # Dragonfly (Python load gen)
+2. Ensure no other services are using **port 6379** (Dragonfly) or **9092** (Kafka). Stop any existing Redis/Kafka containers if needed.
 
-# Or use redis-benchmark (often shows Dragonfly winning):
-RUN_LOAD_DEMO=benchmark ./start_demo.sh
-USE_DRAGONFLY=1 RUN_LOAD_DEMO=benchmark ./start_demo.sh
-```
+---
 
-**Demo 1 flow (compare Redis vs Dragonfly):**
+## Step 2 — Start the POC
 
-1. Run load once on Redis, once on Dragonfly (same workload each time).
-2. Compare with the appropriate script (see below).
-
-**TL;DR:** Use `start_demo.sh` for everything. Set `RUN_LOAD_DEMO=1` (Python load) or `RUN_LOAD_DEMO=benchmark` (redis-benchmark). After one run per backend, run the matching compare script. See DEMO_STYLE.md for when Dragonfly may win.
-
-**Comparison (Python load):** With `RUN_LOAD_DEMO=1`, each run writes `logs/load_redis.json` or `logs/load_dragonfly.json` and appends to `logs/load_runs.log`. After one Redis run and one Dragonfly run:
+From the project root, run:
 
 ```bash
-python scripts/compare_load_runs.py
+./start_poc.sh
 ```
 
-The script prints which log files and timestamps it’s using. To compare specific runs: `python scripts/compare_load_runs.py path/to/load_redis.json path/to/load_dragonfly.json`.
+Or without RedisInsight: `docker compose up -d`
 
-**Comparison (benchmark):** With `RUN_LOAD_DEMO=benchmark`, each run uses `scripts/run_benchmark.py` (redis-benchmark under the hood) and writes `logs/benchmark_redis.json` or `logs/benchmark_dragonfly.json`, and appends to `logs/benchmark_runs.log`. After one Redis run and one Dragonfly run:
+This starts:
+
+- **Zookeeper** (Confluent) on port 2181  
+- **Kafka** (Confluent) on port 9092  
+- **Dragonfly** on port 6379 (Redis protocol)  
+- **Ingestion bridge** — consumes from Kafka and writes to Dragonfly (retries until Kafka is up)  
+- **Trade producer** — mock trades into Kafka topic `trades`  
+- **Query API** — HTTP API on port 8080  
+- **RedisInsight** (optional) — start with `--profile with-ui` to get a GUI at http://localhost:5540 (see "Dragonfly UI" below).
+
+Wait 30–60 seconds for Kafka to be ready and for the producer/bridge to connect and stream data. Then validate with the commands below.
+
+### Dragonfly UI (optional): RedisInsight
+
+**RedisInsight** works with Dragonfly (Redis-compatible). Use it to browse keys (`trades:AAPL`, etc.), run commands, and view memory.
+
+**1. Start RedisInsight** (with or after the POC):
 
 ```bash
-python scripts/compare_benchmark_runs.py
+docker compose --profile with-ui up -d
+# Or to add only RedisInsight to an already-running POC:
+docker compose --profile with-ui up -d redisinsight
 ```
 
-Optional: `python scripts/compare_benchmark_runs.py path/to/benchmark_redis.json path/to/benchmark_dragonfly.json`. On Docker/Mac, Redis may still win at default 256 clients; try `BENCHMARK_CLIENTS=500` (see DEPLOYMENT.md).
+**2. Open RedisInsight in your browser:** http://localhost:5540
 
-Or start the backend only: `docker compose -f docker-compose.yml -f docker-compose.dragonfly.yml up -d`.  
-Dragonfly HTTP console: http://localhost:6379. **Admin port** (status/metrics): http://localhost:9999/ and http://localhost:9999/metrics — Dragonfly only; Redis does not have this.
+**3. Add Dragonfly as a database.** RedisInsight runs in a Docker container and connects to Dragonfly over the Docker network, so use the **service name** as the host (not `localhost`):
 
-### 2. Python env
+| Field        | Value        |
+|-------------|--------------|
+| **Host**    | `dragonfly`  |
+| **Port**    | `6379`       |
+| **Username**| *(leave empty)* |
+| **Password**| *(leave empty)* |
+
+**Connection URL** (if RedisInsight asks for a URL instead):
+
+```
+redis://dragonfly:6379
+```
+
+No username or password is configured for this POC.
+
+**Why `dragonfly` and not `localhost`?** RedisInsight runs inside a container. From that container, `localhost` is the RedisInsight container itself, not Dragonfly. The hostname `dragonfly` is the Docker Compose service name and resolves to the Dragonfly container on the same network.
+
+**4. After connecting:** You'll see keys like `trades:AAPL`, `trades:MSFT`. Click a key to view the sorted set (last 10 trades), or use the CLI/Workbench to run `ZREVRANGE trades:AAPL 0 9`.
+
+**Dragonfly admin port** (metrics/health only, no key browser): http://localhost:9999 and http://localhost:9999/metrics
+
+### Scale out (optional)
+
+You can run **multiple ingestion-bridge** instances so they share the Kafka topic (consumer group).
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+./scale_out_poc.sh [N]   # scale to N bridge instances (default 2)
+./scale_down_poc.sh      # scale back to 1 bridge
 ```
 
-### 3. Run the demo
+The scale-out script ensures the `trades` topic has enough partitions, then scales the bridge.
 
-**Option A – Script (easiest)**
+---
+
+## Step 3 — Validate: query data per security
+
+### Option A — REST API (recommended)
+
+**List securities that have data:**
 
 ```bash
-./start_demo.sh
+curl -s http://localhost:8080/securities
 ```
 
-Starts Redis + RedisInsight (Docker) if needed, then producer, worker, API, and dashboard in the background. Logs: `logs/*.log`.
-
-Stop everything (processes + stop Redis/RedisInsight containers; containers are not removed):
+**Get last 10 trades for a security (e.g. AAPL):**
 
 ```bash
-./stop_demo.sh
+curl -s http://localhost:8080/ticker/AAPL
 ```
 
-**Option B – Manual (4 terminals)**
-
-| Terminal | Command |
-|----------|---------|
-| 1 | `python producer.py` |
-| 2 | `CONSUMER=worker-1 python worker.py` |
-| 3 | `python api.py` |
-| 4 | `streamlit run dashboard.py` |
-
-- **Dashboard:** http://localhost:8501  
-- **API:** http://localhost:8080  
-- **RedisInsight:** http://localhost:5540  
-
-### Optional: second worker (horizontal scaling)
+or explicitly:
 
 ```bash
-CONSUMER=worker-2 python worker.py
+curl -s http://localhost:8080/ticker/AAPL/last10
 ```
 
-## Live demo: “wow” moments
+Example response shape:
 
-### 1) Durable ingestion (not just cache)
+```json
+{
+  "ticker": "AAPL",
+  "last_10_trades": [
+    {"ticker": "AAPL", "price": 185.22, "volume": 200, "timestamp": 1710000012},
+    ...
+  ]
+}
+```
 
-In **RedisInsight** (http://localhost:5540): open the **ops:events** stream and show events accumulating. Data is persisted (AOF); it’s not best-effort like pub/sub.
-
-### 2) Scale-out + fault recovery (automated)
-
-With the demo already running (`./start_demo.sh`), you can:
-
-**Scale up to N workers** (worker-1 through worker-N):
+**Health check:**
 
 ```bash
-./scale_out.sh [N]   # default N=2; e.g. ./scale_out.sh 5 for 5 workers
+curl -s http://localhost:8080/health
 ```
 
-**Run the fault-recovery demo** (add worker-2, then kill worker-1 to show recovery):
+Or use the helper script (runs curl and pretty-prints JSON):
 
 ```bash
-./scale_out.sh --demo
+./query_api.sh              # health + securities + ticker AAPL
+./query_api.sh health       # health only
+./query_api.sh securities   # list securities
+./query_api.sh ticker AAPL  # last 10 trades for AAPL
+./query_api.sh MSFT         # last 10 trades for MSFT
 ```
 
-The demo script: (1) starts worker-2, (2) after a delay kills worker-1, (3) incidents keep updating via worker-2; no data loss.
+### Option B — Benchmark (query latency + throughput)
 
-**While it runs:** in RedisInsight → stream **ops:events** → consumer group **ops:workers** → show **Pending** (messages that were on worker-1 and can be claimed). Dashboard and API keep updating.
-
-Tune delay (default 6s): `DEMO_DELAY=10 ./scale_out.sh --demo`
-
-To scale back down (fewer workers):
+With the POC running and data flowing (so Dragonfly has `trades:*` keys), run:
 
 ```bash
-./scale_down.sh [N]   # keep N workers (default 1). E.g. ./scale_down.sh 2 → worker-1 and worker-2
+./run_benchmark.sh
 ```
 
-### 3) Full demo reset
+The script uses `.venv` if present (with `redis` installed); otherwise it uses `python3`. Optional: `BENCHMARK_QUERIES=50000 ./run_benchmark.sh` or pass host/port: `./run_benchmark.sh localhost 6379`.
 
-Stop all processes and clear Redis (stream, incidents, leaderboard) so the next run starts from zero:
+Example output:
+
+```
+--- POC benchmark (last 10 trades per security) ---
+Host: localhost:6379  Queries: 10000  Tickers: 10
+Avg Query Latency: 0.15 ms
+Throughput: 6,653 ops/sec
+---------------------------------------------------
+```
+
+### Option C — redis-cli (directly against Dragonfly)
+
+If you have `redis-cli` on your host (e.g. `brew install redis` on Mac):
+
+**Last 10 trades for AAPL (newest first):**
 
 ```bash
-./demo_reset.sh
+redis-cli -h localhost -p 6379 ZREVRANGE trades:AAPL 0 9
 ```
 
-Then run `./start_demo.sh` for a fresh demo.
+**List keys for all securities:**
 
-**Other Redis deployments:** The app and scripts work with any Redis-compatible server. Set `REDIS_HOST`/`REDIS_PORT` or pass host/port to scripts (e.g. `python scripts/info_stats.py myredis 6379`). See DEPLOYMENT.md → “Other Redis deployments”.
+```bash
+redis-cli -h localhost -p 6379 KEYS "trades:*"
+```
 
-## Layout
+**Count of trades stored for a security:**
+
+```bash
+redis-cli -h localhost -p 6379 ZCARD trades:AAPL
+```
+
+You should see up to 10 entries per security; the bridge keeps only the last 10 by timestamp.
+
+---
+
+## Step 4 — Stop the POC
+
+```bash
+./stop_poc.sh
+```
+
+To also remove the Dragonfly data volume:
+
+```bash
+./stop_poc.sh -v
+```
+
+---
+
+## Data model (Dragonfly)
+
+| Key           | Type | Description |
+|---------------|------|--------------|
+| `trades:AAPL` | ZSET | One sorted set per security. Score = trade timestamp, value = trade JSON. Only the last 10 (by score) are kept. |
+
+The ingestion bridge runs `ZADD` for each consumed trade and then `ZREMRANGEBYRANK` so that at most 10 members remain per key. Queries use `ZREVRANGE` to get the last 10 (newest first).
+
+---
+
+## Troubleshooting
+
+| Issue | What to do |
+|-------|------------|
+| No data in `/ticker/AAPL` or `trades:AAPL` | Wait 30–60 s after `up -d`; the producer and bridge need to start. Try `curl http://localhost:8080/securities` again. |
+| `Connection refused` to Kafka or Dragonfly | Ensure all containers are up: `docker compose ps`. Check logs: `docker compose logs ingestion-bridge` and `docker compose logs trade-producer`. |
+| Port 6379 or 9092 in use | Stop the process using that port or change the compose ports. |
+
+---
+
+## File layout
 
 ```
-redis_demo/
-  docker-compose.yml            # Redis 7.4 + RedisInsight
-  docker-compose.dragonfly.yml   # Override to use Dragonfly (Redis API compatible)
-  requirements.txt
-  start_demo.sh        # Start Redis containers + producer, worker, API, dashboard
-  stop_demo.sh         # Stop all demo processes + stop (not remove) Redis/RedisInsight containers
-  scale_out.sh         # Scale to N workers (e.g. ./scale_out.sh 5); --demo for fault-recovery
-  scale_down.sh        # Scale to N workers (e.g. ./scale_down.sh 2 or ./scale_down.sh for 1)
-  demo_reset.sh        # Stop all + clear Redis; then start_demo.sh for fresh run
-  TALK_TRACK.md        # Exec view + talk track for engineers and execs
-  DEMO_STYLE.md        # Redis vs Dragonfly demos (throughput, scale, memory, cost)
-  scripts/load_gen.py  # SET/GET load generator (works with Redis or Dragonfly)
-  scripts/info_stats.py # INFO stats / requests per sec (works with Redis or Dragonfly)
-  scripts/compare_load_runs.py # Compare Python load logs (logs/load_redis.json vs load_dragonfly.json)
-  scripts/run_benchmark.py     # Run redis-benchmark and write logs/benchmark_<label>.json
-  scripts/compare_benchmark_runs.py # Compare benchmark logs (logs/benchmark_redis.json vs benchmark_dragonfly.json)
-  producer.py          # Simulated events → ops:events stream
-  worker.py            # Consumer group → incidents + leaderboard + pub/sub
-  api.py               # /health, /stats, /top, /incidents
-  dashboard.py         # Streamlit OpsView (auto-refresh)
-  logs/                # *.log (app logs); load_*.json, load_runs.log (Python load); benchmark_*.json, benchmark_runs.log (benchmark)
+docker-compose.yml      # Zookeeper, Kafka, Dragonfly, ingestion-bridge, trade-producer, query-api
+Dockerfile              # Image for bridge, producer, and API
+requirements.txt        # redis, flask
+requirements-poc.txt    # kafka-python
+ingestion/kafka_bridge.py   # Kafka consumer → Dragonfly ZSET (last 10 per ticker)
+producer/trade_producer.py  # Mock trade producer → Kafka topic "trades"
+api_poc.py              # GET /ticker/<symbol>, /securities, /health
+scripts/benchmark_poc.py    # Benchmark last-10-trades query latency + throughput
+start_poc.sh            # Start POC with RedisInsight (docker compose --profile with-ui up -d)
+stop_poc.sh             # Stop POC (docker compose down; use -v to remove volumes)
+run_benchmark.sh        # Run benchmark (uses .venv if present)
+query_api.sh            # Curl the API (health, securities, ticker; pretty-printed JSON)
+scale_out_poc.sh        # Scale ingestion-bridge to N instances (Kafka consumer group)
+scale_down_poc.sh       # Scale ingestion-bridge back to 1
+README.md               # This file — setup, run, and validate the POC
+.gitignore
 ```
+
+---
+
+This README is intended for the CashCache DevOps engineer: follow the steps above to set up, run, and validate the POC on your infrastructure.

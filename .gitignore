@@ -2,12 +2,21 @@
 *.pid
 logs/
 .env
+.env.local
 .venv/
 __pycache__/
 *.pyc
+*.pyo
 .pytest_cache/
 .coverage
 htmlcov/
 
+# Python packaging / build
+*.egg-info/
+.eggs/
+dist/
+build/
+
 # OS
 .DS_Store
+Thumbs.db

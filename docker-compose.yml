@@ -1,20 +1,98 @@
+# Dragonfly Ingestion Bridge POC — self-contained package for CashCache.
+# Run: docker compose up -d
+# See README for setup and validation.
+
 services:
-  redis:
-    image: redis:7.4
-    container_name: redis-demo
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: poc-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: poc-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    container_name: poc-dragonfly
+    ulimits:
+      memlock: -1
+    command: ["dragonfly", "--logtostderr", "--dbnum", "1", "--admin_port", "9999"]
     ports:
       - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes"]  # durability for the demo
+      - "9999:9999"
     volumes:
-      - redis_data:/data
+      - dragonfly_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
 
+  ingestion-bridge:
+    build: .
+    # No container_name so we can scale with: docker compose up -d --scale ingestion-bridge=N
+    command: ["python", "ingestion/kafka_bridge.py"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_TRADES: trades
+      DRAGONFLY_HOST: dragonfly
+      DRAGONFLY_PORT: "6379"
+    depends_on:
+      - kafka
+      - dragonfly
+    restart: unless-stopped
+
+  trade-producer:
+    build: .
+    container_name: poc-trade-producer
+    command: ["python", "producer/trade_producer.py"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_TRADES: trades
+    depends_on:
+      - kafka
+    restart: unless-stopped
+
+  query-api:
+    build: .
+    container_name: poc-query-api
+    command: ["python", "api_poc.py"]
+    environment:
+      DRAGONFLY_HOST: dragonfly
+      DRAGONFLY_PORT: "6379"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - dragonfly
+    restart: unless-stopped
+
+  # Optional: RedisInsight works with Dragonfly (Redis-compatible). Browse keys, run CLI, view memory.
   redisinsight:
     image: redis/redisinsight:latest
-    container_name: redisinsight-demo
+    container_name: poc-redisinsight
     ports:
       - "5540:5540"
     depends_on:
-      - redis
+      - dragonfly
+    profiles:
+      - with-ui
 
 volumes:
-  redis_data:
+  dragonfly_data:

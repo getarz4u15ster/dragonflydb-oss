@@ -1,0 +1,2 @@
+# POC: Kafka ingestion bridge and trade producer
+kafka-python==2.0.2
