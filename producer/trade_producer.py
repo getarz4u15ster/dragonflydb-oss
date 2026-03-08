@@ -14,6 +14,10 @@ from kafka.errors import KafkaError
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC = os.getenv("KAFKA_TOPIC_TRADES", "trades")
 TICKERS = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "JPM", "V", "WMT"]
+# Delay between trades (seconds). Lower = more load on Kafka and Dragonfly.
+# Default 0.1–0.5; for load testing try TRADE_DELAY_MIN=0.01 TRADE_DELAY_MAX=0.02
+DELAY_MIN = float(os.getenv("TRADE_DELAY_MIN", "0.1"))
+DELAY_MAX = float(os.getenv("TRADE_DELAY_MAX", "0.5"))
 
 
 def connect_producer(max_attempts=30, wait_sec=2):
@@ -49,7 +53,7 @@ def main():
             producer.send(TOPIC, value=msg)
             producer.flush()
             print(f"Produced {ticker} @ {price} x {volume}")
-            time.sleep(random.uniform(0.1, 0.5))
+            time.sleep(random.uniform(DELAY_MIN, DELAY_MAX))
     except KafkaError as e:
         print(f"Kafka error: {e}")
         raise

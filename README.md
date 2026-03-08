@@ -99,6 +99,31 @@ You can run **multiple ingestion-bridge** instances so they share the Kafka topi
 
 The scale-out script ensures the `trades` topic has enough partitions, then scales the bridge.
 
+### Simulating load on Dragonfly
+
+**Does scaling out create more load?** Yes, but only a bit. More bridge instances consume from Kafka in parallel, so more writes (ZADD, ZREMRANGEBYRANK) hit Dragonfly. Total write rate is still limited by the **trade producer**, which by default sends about 2–10 trades/sec.
+
+**Ways to simulate load:**
+
+1. **Faster producer (write load)** — Run the producer with a shorter delay so more trades flow into Dragonfly:
+   ```bash
+   docker compose run --rm -e TRADE_DELAY_MIN=0.01 -e TRADE_DELAY_MAX=0.02 trade-producer
+   ```
+   Or set env in `docker-compose.yml` for the `trade-producer` service (e.g. `TRADE_DELAY_MIN: "0.01"`, `TRADE_DELAY_MAX: "0.02"`). Lower delay = more writes/sec to Dragonfly.
+
+2. **Read load** — The benchmark script hammers Dragonfly with read queries (ZREVRANGE):
+   ```bash
+   ./run_benchmark.sh
+   ```
+   Use `BENCHMARK_QUERIES=100000 ./run_benchmark.sh` for a longer run. This measures latency and throughput for the "last 10 trades" query.
+
+3. **Scale bridges + faster producer** — Scale out the ingestion bridge (e.g. `./scale_out_poc.sh 4`) and run a faster producer so more messages are consumed and written to Dragonfly in parallel.
+
+4. **Generic load (optional)** — If you have `redis-benchmark` installed (e.g. `brew install redis`), you can stress Dragonfly with arbitrary commands:
+   ```bash
+   redis-benchmark -h localhost -p 6379 -t set,get,zadd,zrange -n 100000 -c 50
+   ```
+
 ---
 
 ## Step 3 — Validate: query data per security
