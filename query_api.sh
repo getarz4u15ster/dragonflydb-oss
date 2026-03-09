@@ -20,7 +20,7 @@ case "${1:-}" in
     ;;
   ticker)
     sym="${2:-AAPL}"
-    echo "=== Ticker $sym (last 10) ==="
+    echo "=== Symbol $sym (last 10 trades) ==="
     curl -s "$BASE/ticker/$sym" | python3 -m json.tool
     ;;
   "")
@@ -30,12 +30,12 @@ case "${1:-}" in
     echo "=== Securities ==="
     curl -s "$BASE/securities" | python3 -m json.tool
     echo ""
-    echo "=== Ticker AAPL (last 10) ==="
+    echo "=== Symbol AAPL (last 10 trades) ==="
     curl -s "$BASE/ticker/AAPL" | python3 -m json.tool
     ;;
   *)
     # Treat first arg as symbol
-    echo "=== Ticker $1 (last 10) ==="
+    echo "=== Symbol $1 (last 10 trades) ==="
     curl -s "$BASE/ticker/$1" | python3 -m json.tool
     ;;
 esac

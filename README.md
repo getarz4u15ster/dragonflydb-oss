@@ -12,6 +12,21 @@
 
 ---
 
+## Requirements (from discovery)
+
+This POC is aligned with CashCache’s answers from discovery:
+
+| Topic | Requirement | How the POC addresses it |
+|-------|-------------|---------------------------|
+| **Trade message schema** | Flat JSON: `symbol` (string), `price` (float), `quantity` (integer), `timestamp` (ISO8601 string), `trade_id` (UUID) | Producer emits this schema. Bridge accepts it and stores full JSON in Dragonfly. |
+| **Ingestion rate** | ~50k eps average; spikes to 500k eps; no backpressure to Kafka, low frontend latency | Bridge uses Kafka consumer (pull-based), so it does not push back to Kafka. Scale bridge instances and topic partitions to handle throughput; Dragonfly supports high write/read rates. This POC runs at low rate for demos; production would scale partitions + bridges. |
+| **Symbol scale** | ~12k symbols globally; 500–1k “hot” at any time | Data model is one ZSET per symbol (`trades:SYMBOL`); scales to 12k+ keys. Mock producer uses a subset of symbols for the demo. |
+| **Retention** | Last 10 trades per symbol only (no longer window for POC) | Bridge runs `ZREMRANGEBYRANK` after each `ZADD` so at most 10 members per key. |
+| **Frontend / query** | REST API from mobile app → backend → data store; &lt;1 ms from data store | This repo’s Query API is the backend: it talks to Dragonfly over the Redis protocol. Use `./run_benchmark.sh` to measure latency (typically sub‑ms). |
+| **Client library** | Backend will query Dragonfly via Redis-compatible client; &lt;1 ms target | **Recommended:** Use the official Redis client for your stack. Examples: **Python** [redis-py](https://github.com/redis/redis-py), **Node** [ioredis](https://github.com/redis/ioredis) or [node-redis](https://github.com/redis/node-redis), **Go** [go-redis](https://github.com/redis/go-redis), **Java** [Jedis](https://github.com/redis/jedis) or [Lettuce](https://github.com/lettuce-io/lettuce-core). All are Dragonfly-compatible. This POC’s API uses **redis-py**. |
+
+---
+
 ## Prerequisites
 
 - **Docker** and **Docker Compose** (v2+), installed and running on your machine.
@@ -148,13 +163,13 @@ or explicitly:
 curl -s http://localhost:8080/ticker/AAPL/last10
 ```
 
-Example response shape:
+Example response shape (schema matches discovery: symbol, price, quantity, timestamp ISO8601, trade_id):
 
 ```json
 {
-  "ticker": "AAPL",
+  "symbol": "AAPL",
   "last_10_trades": [
-    {"ticker": "AAPL", "price": 185.22, "volume": 200, "timestamp": 1710000012},
+    {"symbol": "AAPL", "price": 185.22, "quantity": 200, "timestamp": "2025-03-07T14:30:00.123Z", "trade_id": "550e8400-e29b-41d4-a716-446655440000"},
     ...
   ]
 }
@@ -240,7 +255,7 @@ To also remove the Dragonfly data volume:
 
 | Key           | Type | Description |
 |---------------|------|--------------|
-| `trades:AAPL` | ZSET | One sorted set per security. Score = trade timestamp, value = trade JSON. Only the last 10 (by score) are kept. |
+| `trades:AAPL` | ZSET | One sorted set per symbol. Score = trade timestamp (epoch; from ISO8601 in bridge). Value = full trade JSON (`symbol`, `price`, `quantity`, `timestamp`, `trade_id`). Only the last 10 (by score) are kept. |
 
 The ingestion bridge runs `ZADD` for each consumed trade and then `ZREMRANGEBYRANK` so that at most 10 members remain per key. Queries use `ZREVRANGE` to get the last 10 (newest first).
 
@@ -264,7 +279,7 @@ docker-compose.yml      # Zookeeper, Kafka, Dragonfly, ingestion-bridge, trade-p
 Dockerfile              # Image for bridge, producer, and API
 requirements.txt        # redis, flask
 requirements-poc.txt    # kafka-python
-ingestion/kafka_bridge.py   # Kafka consumer → Dragonfly ZSET (last 10 per ticker)
+ingestion/kafka_bridge.py   # Kafka consumer → Dragonfly ZSET (last 10 per symbol)
 producer/trade_producer.py  # Mock trade producer → Kafka topic "trades"
 api_poc.py              # GET /ticker/<symbol>, /securities, /health
 scripts/benchmark_poc.py    # Benchmark last-10-trades query latency + throughput

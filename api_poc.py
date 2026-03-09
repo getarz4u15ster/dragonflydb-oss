@@ -37,7 +37,7 @@ def health():
 def ticker_last10(symbol):
     """Return the last 10 trades for the given security (per POC requirement)."""
     trades = _last_n_trades(symbol, 10)
-    return jsonify({"ticker": symbol.upper(), "last_10_trades": trades})
+    return jsonify({"symbol": symbol.upper(), "last_10_trades": trades})
 
 
 @app.get("/securities")

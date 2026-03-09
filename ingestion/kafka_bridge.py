@@ -1,12 +1,16 @@
 """
 Dragonfly Ingestion Bridge — consume trades from Kafka, store last 10 per security in Dragonfly.
-Data model: ZSET per ticker, score=timestamp, value=trade JSON. We keep only the last 10 (by time).
+Data model: ZSET per symbol, score=timestamp (epoch), value=trade JSON. We keep only the last 10 (by time).
+
+Accepts CashCache schema: symbol, price, quantity, timestamp (ISO8601), trade_id.
+Also accepts legacy: ticker, volume, timestamp (epoch number) for backward compatibility.
 """
 import json
 import os
 import signal
 import sys
 import time
+from datetime import datetime
 
 import redis
 from kafka import KafkaConsumer
@@ -16,13 +20,29 @@ KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC = os.getenv("KAFKA_TOPIC_TRADES", "trades")
 DRAGONFLY_HOST = os.getenv("DRAGONFLY_HOST", "localhost")
 DRAGONFLY_PORT = int(os.getenv("DRAGONFLY_PORT", "6379"))
-LAST_N = 10  # "Last 10 trades" per security
+LAST_N = 10  # "Last 10 trades" per security (per discovery: no longer window for POC)
 
 KEY_PREFIX = "trades:"
 
 
-def make_key(ticker: str) -> str:
-    return f"{KEY_PREFIX}{ticker}"
+def make_key(symbol: str) -> str:
+    return f"{KEY_PREFIX}{symbol.upper()}"
+
+
+def timestamp_to_score(ts) -> float:
+    """Convert timestamp to numeric score for ZSET (for ordering). Accepts ISO8601 string or epoch number."""
+    if ts is None:
+        return 0.0
+    if isinstance(ts, (int, float)):
+        return float(ts)
+    if isinstance(ts, str):
+        try:
+            # ISO8601 with optional Z / +00:00
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            return dt.timestamp()
+        except (ValueError, TypeError):
+            return 0.0
+    return 0.0
 
 
 def connect_consumer(max_attempts=30, wait_sec=2):
@@ -67,14 +87,16 @@ def main():
                 break
             try:
                 trade = message.value
-                ticker = trade.get("ticker")
+                # CashCache schema: symbol; legacy: ticker
+                symbol = trade.get("symbol") or trade.get("ticker")
                 ts = trade.get("timestamp")
-                if not ticker or ts is None:
+                if not symbol:
                     continue
-                key = make_key(ticker)
-                # Use timestamp as score; value is full trade JSON for display
+                score = timestamp_to_score(ts)
+                key = make_key(symbol)
+                # Store full trade JSON; score = timestamp for ordering (newest first)
                 value = json.dumps(trade)
-                r.zadd(key, {value: ts})
+                r.zadd(key, {value: score})
                 # Keep only last LAST_N (highest scores = most recent)
                 r.zremrangebyrank(key, 0, -(LAST_N + 1))
             except (redis.RedisError, json.JSONDecodeError) as e:
