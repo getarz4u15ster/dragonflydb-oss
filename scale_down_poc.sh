@@ -6,10 +6,10 @@
 # Prereq: POC is running.
 set -e
 cd "$(dirname "$0")"
-COMPOSE="docker compose"
+. ./poc_compose.sh
 
 echo "scale_down_poc: scaling ingestion-bridge back to 1 instance."
-$COMPOSE up -d --scale ingestion-bridge=1
+$COMPOSE $PROFILES up -d --scale ingestion-bridge=1
 echo ""
 echo "Done. One ingestion-bridge instance."
-echo "Check: $COMPOSE ps"
+echo "Check: $COMPOSE $PROFILES ps"

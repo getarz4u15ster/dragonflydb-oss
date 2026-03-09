@@ -1,5 +1,6 @@
 # Runtime
 *.pid
+.poc-store
 logs/
 .env
 .env.local

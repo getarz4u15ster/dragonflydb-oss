@@ -8,7 +8,7 @@
 # Prereq: POC is running (./start_poc.sh or docker compose --profile with-ui up -d).
 set -e
 cd "$(dirname "$0")"
-COMPOSE="docker compose"
+. ./poc_compose.sh
 
 N=2
 if [ -n "$1" ]; then
@@ -28,12 +28,12 @@ echo ""
 # Ensure topic exists with enough partitions so multiple consumers get work
 PARTITIONS=$((N > 4 ? N : 4))
 echo "Step 1: Topic 'trades' with ${PARTITIONS} partition(s)..."
-$COMPOSE exec -T kafka kafka-topics --create --topic trades --partitions "$PARTITIONS" --replication-factor 1 --bootstrap-server localhost:9092 2>/dev/null || true
-$COMPOSE exec -T kafka kafka-topics --alter --topic trades --partitions "$PARTITIONS" --bootstrap-server localhost:9092 2>/dev/null || true
+$COMPOSE $PROFILES exec -T kafka kafka-topics --create --topic trades --partitions "$PARTITIONS" --replication-factor 1 --bootstrap-server localhost:9092 2>/dev/null || true
+$COMPOSE $PROFILES exec -T kafka kafka-topics --alter --topic trades --partitions "$PARTITIONS" --bootstrap-server localhost:9092 2>/dev/null || true
 echo ""
 
 echo "Step 2: Scaling ingestion-bridge to $N instance(s)..."
-$COMPOSE up -d --scale ingestion-bridge="$N"
+$COMPOSE $PROFILES up -d --scale ingestion-bridge="$N"
 echo ""
 echo "Done. $N ingestion-bridge instance(s) in consumer group 'dragonfly-bridge'."
-echo "Check: $COMPOSE ps"
+echo "Check: $COMPOSE $PROFILES ps"

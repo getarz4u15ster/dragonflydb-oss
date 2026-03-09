@@ -83,7 +83,23 @@ services:
       - dragonfly
     restart: unless-stopped
 
-  # Optional: RedisInsight works with Dragonfly (Redis-compatible). Browse keys, run CLI, view memory.
+  # Redis (second store for RedisInsight): add as "Redis" with host=redis, port=6379.
+  # Only started in Dragonfly mode (--profile with-redis). In redis mode, main store is Redis and dragonfly-alt is Dragonfly.
+  redis:
+    image: redis:7-alpine
+    container_name: poc-redis
+    command: ["redis-server"]
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - with-redis
+
+  # Optional: RedisInsight works with Dragonfly/Redis (Redis-compatible). Browse keys, run CLI, view memory.
   redisinsight:
     image: redis/redisinsight:latest
     container_name: poc-redisinsight

@@ -1,0 +1,37 @@
+# Override: use Redis instead of Dragonfly for the in-memory store.
+# Use with: docker compose -f docker-compose.yml -f docker-compose.redis.yml ...
+# Service name stays "dragonfly" so DRAGONFLY_HOST/dragonfly and all scripts work unchanged.
+# dragonfly-alt = Dragonfly running alongside so RedisInsight can have both connections.
+
+services:
+  dragonfly:
+    image: redis:7-alpine
+    container_name: poc-dragonfly
+    command: ["redis-server"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+
+  # When Redis is the main store, run Dragonfly as second so RedisInsight can add both.
+  dragonfly-alt:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    container_name: poc-dragonfly-alt
+    ulimits:
+      memlock: -1
+    command: ["dragonfly", "--logtostderr", "--dbnum", "1"]
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis_data:

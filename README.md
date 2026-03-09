@@ -1,13 +1,13 @@
 # Dragonfly Ingestion Bridge POC
 
-**Deliverable for CashCache:** A self-contained package that demonstrates ingestion from Kafka into Dragonfly, a data model that supports **"last 10 trades" per security**, and a way to query and validate the data.
+**Deliverable for CashCache:** A self-contained deployable package that demonstrates ingestion from Kafka into Dragonfly, and a data model that supports **"last 10 trades" per security**, including a way to query and validate the data.
 
 ---
 
 ## What this POC does
 
 1. **Ingestion** — Trade messages flow from a Kafka topic into Dragonfly via a small ingestion bridge.
-2. **Storage** — Dragonfly holds one sorted set per security (e.g. `trades:AAPL`), keeping only the last 10 trades by timestamp.
+2. **Storage** — The store (Dragonfly or Redis) holds one LIST per security (e.g. `trades:AAPL`), keeping only the last 10 trades (LPUSH + LTRIM).
 3. **Validation** — You can query Dragonfly via REST API or `redis-cli` and see data per security.
 
 ---
@@ -52,6 +52,14 @@ From the project root, run:
 ./start_poc.sh
 ```
 
+To use **Redis 7** instead of Dragonfly as the in-memory store (same scripts, same ports, same API):
+
+```bash
+./start_poc.sh redis
+```
+
+The choice is saved (in `.poc-store`); `./stop_poc.sh` and the scale scripts use the same store automatically. All commands (query API, benchmark, redis-cli, RedisInsight) work the same—host `dragonfly`, port 6379.
+
 Or without RedisInsight: `docker compose up -d`
 
 This starts:
@@ -80,24 +88,25 @@ docker compose --profile with-ui up -d redisinsight
 
 **2. Open RedisInsight in your browser:** http://localhost:5540
 
-**3. Add Dragonfly as a database.** RedisInsight runs in a Docker container and connects to Dragonfly over the Docker network, so use the **service name** as the host (not `localhost`):
+**3. Add the POC store and (optionally) the other store.** You can add both Dragonfly and Redis so you can compare. Use the **service name** as the host (not `localhost`).
 
-| Field        | Value        |
-|-------------|--------------|
-| **Host**    | `dragonfly`  |
-| **Port**    | `6379`       |
-| **Username**| *(leave empty)* |
-| **Password**| *(leave empty)* |
+**When you ran `./start_poc.sh` (Dragonfly as main store):**
 
-**Connection URL** (if RedisInsight asks for a URL instead):
+| Alias (optional) | Host        | Port  |
+|------------------|-------------|-------|
+| Dragonfly (POC)  | `dragonfly` | `6379` |
+| Redis (compare)  | `redis`     | `6379` |
 
-```
-redis://dragonfly:6379
-```
+**When you ran `./start_poc.sh redis` (Redis as main store):**
 
-No username or password is configured for this POC.
+| Alias (optional) | Host             | Port  |
+|------------------|------------------|-------|
+| Redis (POC)     | `dragonfly`      | `6379` |
+| Dragonfly (compare) | `dragonfly-alt` | `6379` |
 
-**Why `dragonfly` and not `localhost`?** RedisInsight runs inside a container. From that container, `localhost` is the RedisInsight container itself, not Dragonfly. The hostname `dragonfly` is the Docker Compose service name and resolves to the Dragonfly container on the same network.
+Leave **Username** and **Password** empty. Connection URL examples: `redis://dragonfly:6379`, `redis://redis:6379`, `redis://dragonfly-alt:6379`.
+
+**Why service names and not `localhost`?** RedisInsight runs inside a container; from there, `localhost` is RedisInsight itself. The hostnames above are Docker Compose service names and resolve to the right container on the same network.
 
 **4. After connecting:** You'll see keys like `trades:AAPL`, `trades:MSFT`. Click a key to view the list (last 10 trades, newest at index 0), or use the CLI/Workbench to run `LRANGE trades:AAPL 0 9`.
 
@@ -213,13 +222,15 @@ Throughput: 6,653 ops/sec
 
 ### Option C — redis-cli (directly against Dragonfly)
 
-If you have `redis-cli` on your host (e.g. `brew install redis` on Mac):
+If you have `redis-cli` on your host (e.g. `brew install redis` on Mac). These commands mirror what the query API does.
 
-**Last 10 trades for AAPL (newest at index 0):**
+**Last 10 trades for a symbol (same as `GET /ticker/AAPL`):**
 
 ```bash
 redis-cli -h localhost -p 6379 LRANGE trades:AAPL 0 9
 ```
+
+Use any symbol in place of `AAPL` (e.g. `trades:MSFT`, `trades:GOOGL`).
 
 **List keys for all securities:**
 
@@ -276,6 +287,8 @@ This is the simplest "last 10" pattern: no scores, insertion order is recency. Q
 ```
 docs/architecture.drawio # Architecture diagram (draw.io): Kafka → Bridge → Dragonfly → API
 docker-compose.yml      # Zookeeper, Kafka, Dragonfly, ingestion-bridge, trade-producer, query-api
+docker-compose.redis.yml # Override: use Redis 7 instead of Dragonfly (./start_poc.sh redis)
+poc_compose.sh          # Shared compose selection for stop/scale (reads .poc-store)
 Dockerfile              # Image for bridge, producer, and API
 requirements.txt        # redis, flask
 requirements-poc.txt    # kafka-python
@@ -283,8 +296,8 @@ ingestion/kafka_bridge.py   # Kafka consumer → Dragonfly LIST (LPUSH + LTRIM 0
 producer/trade_producer.py  # Mock trade producer → Kafka topic "trades"
 api_poc.py              # GET /ticker/<symbol>, /securities, /health
 scripts/benchmark_poc.py    # Benchmark last-10-trades query latency + throughput
-start_poc.sh            # Start POC with RedisInsight (docker compose --profile with-ui up -d)
-stop_poc.sh             # Stop POC (docker compose down; use -v to remove volumes)
+start_poc.sh            # Start POC with RedisInsight; optional: start_poc.sh redis for Redis 7
+stop_poc.sh             # Stop POC (uses same store as start; use down -v to remove volumes)
 run_benchmark.sh        # Run benchmark (uses .venv if present)
 query_api.sh            # Curl the API (health, securities, ticker; pretty-printed JSON)
 scale_out_poc.sh        # Scale ingestion-bridge to N instances (Kafka consumer group)
