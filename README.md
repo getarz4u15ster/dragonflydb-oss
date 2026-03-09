@@ -259,6 +259,7 @@ The ingestion bridge runs `ZADD` for each consumed trade and then `ZREMRANGEBYRA
 ## File layout
 
 ```
+docs/architecture.drawio # Architecture diagram (draw.io): Kafka → Bridge → Dragonfly → API
 docker-compose.yml      # Zookeeper, Kafka, Dragonfly, ingestion-bridge, trade-producer, query-api
 Dockerfile              # Image for bridge, producer, and API
 requirements.txt        # redis, flask
