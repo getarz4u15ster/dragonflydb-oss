@@ -5,7 +5,7 @@
 # Usage:
 #   ./scale_out_poc.sh [N]   scale to N bridge instances (default: 2)
 #
-# Prereq: POC is running (docker compose -f docker-compose.poc.yml up -d).
+# Prereq: POC is running (./start_poc.sh or docker compose --profile with-ui up -d).
 set -e
 cd "$(dirname "$0")"
 COMPOSE="docker compose"

@@ -16,7 +16,7 @@
         <mxCell id="bridge" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#0B0B0B;" value="Ingestion Bridge&#xa;(Kafka consumer)" vertex="1">
           <mxGeometry height="70" width="160" x="450" y="195" as="geometry" />
         </mxCell>
-        <mxCell id="dragonfly" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#0B0B0B;" value="Dragonfly&#xa;trades:SYMBOL (ZSET)&#xa;last 10 per security" vertex="1">
+        <mxCell id="dragonfly" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#0B0B0B;" value="Dragonfly&#xa;trades:SYMBOL (LIST)&#xa;LPUSH + LTRIM 0 9" vertex="1">
           <mxGeometry height="60" width="200" x="740" y="200" as="geometry" />
         </mxCell>
         <mxCell id="api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#0B0B0B;" value="Query API&#xa;/ticker/" vertex="1">
@@ -37,10 +37,10 @@
         <mxCell id="e3" edge="1" parent="1" source="kafka" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="bridge" value="consumes">
           <mxGeometry height="50" relative="1" width="50" as="geometry" />
         </mxCell>
-        <mxCell id="e4" edge="1" parent="1" source="bridge" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=#D5E8D4;fontColor=#0B0B0B;" target="dragonfly" value="ZADD / ZREMRANGE">
+        <mxCell id="e4" edge="1" parent="1" source="bridge" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=#D5E8D4;fontColor=#0B0B0B;" target="dragonfly" value="LPUSH + LTRIM">
           <mxGeometry height="50" relative="1" width="50" as="geometry" />
         </mxCell>
-        <mxCell id="e5" edge="1" parent="1" source="dragonfly" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="api" value="ZREVRANGE">
+        <mxCell id="e5" edge="1" parent="1" source="dragonfly" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="api" value="LRANGE 0 9">
           <mxGeometry height="50" relative="1" width="50" as="geometry" />
         </mxCell>
         <mxCell id="e6" edge="1" parent="1" source="dragonfly" style="endArrow=classic;html=1;rounded=0;dashed=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="redisinsight" value="browse">

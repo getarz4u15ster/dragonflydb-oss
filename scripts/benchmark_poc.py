@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Benchmark the Dragonfly Ingestion Bridge POC: "last 10 trades" query latency and throughput.
-Measures ZREVRANGE trades:SYMBOL 0 9 (same as the API /ticker/<symbol>).
+Measures LRANGE trades:SYMBOL 0 9 (same as the API /ticker/<symbol>).
 Run with the POC stack up so Dragonfly has trades:* keys.
 
 Usage: python scripts/benchmark_poc.py [host] [port]
@@ -23,18 +23,21 @@ KEY_PREFIX = "trades:"
 def main():
     r = redis.Redis(host=HOST, port=PORT, decode_responses=True)
 
-    # Discover tickers that have data (same as /securities)
+    # Discover tickers that have LIST data (ignore old ZSET keys from pre-LIST design)
     keys = r.keys(f"{KEY_PREFIX}*")
-    tickers = [k.replace(KEY_PREFIX, "") for k in keys]
+    tickers = [k.replace(KEY_PREFIX, "") for k in keys if r.type(k) == "list"]
     if not tickers:
-        print(f"No keys matching {KEY_PREFIX}* found. Start the POC first (docker compose -f docker-compose.poc.yml up -d), wait ~60s, then run this.")
+        if keys:
+            print(f"No LIST keys found (existing keys are wrong type, e.g. old ZSET). Flush Dragonfly and restart: docker compose down -v && ./start_poc.sh")
+        else:
+            print(f"No keys matching {KEY_PREFIX}* found. Start the POC first (docker compose up -d), wait ~60s, then run this.")
         sys.exit(1)
     tickers.sort()
 
     # Warmup
     for _ in range(WARMUP):
         sym = tickers[_ % len(tickers)]
-        r.zrevrange(f"{KEY_PREFIX}{sym}", 0, 9)
+        r.lrange(f"{KEY_PREFIX}{sym}", 0, 9)
 
     # Timed queries (round-robin across tickers, same as API)
     latencies_ms = []
@@ -43,7 +46,7 @@ def main():
         sym = tickers[i % len(tickers)]
         key = f"{KEY_PREFIX}{sym}"
         t0 = time.perf_counter()
-        r.zrevrange(key, 0, 9)
+        r.lrange(key, 0, 9)
         t1 = time.perf_counter()
         latencies_ms.append((t1 - t0) * 1000)
     elapsed = time.perf_counter() - start

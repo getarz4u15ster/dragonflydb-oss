@@ -9,33 +9,51 @@
 set -e
 BASE="${BASE_URL:-http://localhost:8080}"
 
+# Pretty-print JSON or show a clear error if API is unreachable / returns non-JSON
+run() {
+  local body
+  body=$(curl -s -w "\n%{http_code}" "$1") || { echo "curl failed. Is the POC running? Try: ./start_poc.sh"; return 1; }
+  local code="${body##*$'\n'}"
+  body="${body%$'\n'*}"
+  if [ -z "$body" ]; then
+    echo "Empty response from $1 — is the POC running? Try: ./start_poc.sh"
+    return 1
+  fi
+  if [ "$code" != "200" ]; then
+    echo "HTTP $code from $1"
+    echo "$body" | python3 -m json.tool 2>/dev/null || echo "$body"
+    return 1
+  fi
+  echo "$body" | python3 -m json.tool || { echo "Invalid JSON from $1"; echo "$body"; return 1; }
+}
+
 case "${1:-}" in
   health)
     echo "=== Health ==="
-    curl -s "$BASE/health" | python3 -m json.tool
+    run "$BASE/health"
     ;;
   securities)
     echo "=== Securities ==="
-    curl -s "$BASE/securities" | python3 -m json.tool
+    run "$BASE/securities"
     ;;
   ticker)
     sym="${2:-AAPL}"
     echo "=== Symbol $sym (last 10 trades) ==="
-    curl -s "$BASE/ticker/$sym" | python3 -m json.tool
+    run "$BASE/ticker/$sym"
     ;;
   "")
     echo "=== Health ==="
-    curl -s "$BASE/health" | python3 -m json.tool
+    run "$BASE/health"
     echo ""
     echo "=== Securities ==="
-    curl -s "$BASE/securities" | python3 -m json.tool
+    run "$BASE/securities"
     echo ""
     echo "=== Symbol AAPL (last 10 trades) ==="
-    curl -s "$BASE/ticker/AAPL" | python3 -m json.tool
+    run "$BASE/ticker/AAPL"
     ;;
   *)
     # Treat first arg as symbol
     echo "=== Symbol $1 (last 10 trades) ==="
-    curl -s "$BASE/ticker/$1" | python3 -m json.tool
+    run "$BASE/ticker/$1"
     ;;
 esac

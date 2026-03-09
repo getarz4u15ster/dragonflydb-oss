@@ -17,7 +17,11 @@ r = redis.Redis(host=DRAGONFLY_HOST, port=DRAGONFLY_PORT, decode_responses=True)
 
 def _last_n_trades(symbol: str, n: int = 10):
     key = f"{KEY_PREFIX}{symbol.upper()}"
-    raw = r.zrevrange(key, 0, n - 1)
+    try:
+        raw = r.lrange(key, 0, n - 1)
+    except redis.exceptions.ResponseError:
+        # Key exists but is wrong type (e.g. old ZSET). Return empty.
+        return []
     out = []
     for s in raw:
         try:

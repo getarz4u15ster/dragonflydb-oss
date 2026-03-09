@@ -1,16 +1,15 @@
 """
 Dragonfly Ingestion Bridge — consume trades from Kafka, store last 10 per security in Dragonfly.
-Data model: ZSET per symbol, score=timestamp (epoch), value=trade JSON. We keep only the last 10 (by time).
+Data model: LIST per symbol. LPUSH (newest at head) then LTRIM 0 9 — simplest "last 10" pattern.
 
 Accepts CashCache schema: symbol, price, quantity, timestamp (ISO8601), trade_id.
-Also accepts legacy: ticker, volume, timestamp (epoch number) for backward compatibility.
+Also accepts legacy: ticker, volume for backward compatibility.
 """
 import json
 import os
 import signal
 import sys
 import time
-from datetime import datetime
 
 import redis
 from kafka import KafkaConsumer
@@ -27,22 +26,6 @@ KEY_PREFIX = "trades:"
 
 def make_key(symbol: str) -> str:
     return f"{KEY_PREFIX}{symbol.upper()}"
-
-
-def timestamp_to_score(ts) -> float:
-    """Convert timestamp to numeric score for ZSET (for ordering). Accepts ISO8601 string or epoch number."""
-    if ts is None:
-        return 0.0
-    if isinstance(ts, (int, float)):
-        return float(ts)
-    if isinstance(ts, str):
-        try:
-            # ISO8601 with optional Z / +00:00
-            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            return dt.timestamp()
-        except (ValueError, TypeError):
-            return 0.0
-    return 0.0
 
 
 def connect_consumer(max_attempts=30, wait_sec=2):
@@ -89,16 +72,12 @@ def main():
                 trade = message.value
                 # CashCache schema: symbol; legacy: ticker
                 symbol = trade.get("symbol") or trade.get("ticker")
-                ts = trade.get("timestamp")
                 if not symbol:
                     continue
-                score = timestamp_to_score(ts)
                 key = make_key(symbol)
-                # Store full trade JSON; score = timestamp for ordering (newest first)
                 value = json.dumps(trade)
-                r.zadd(key, {value: score})
-                # Keep only last LAST_N (highest scores = most recent)
-                r.zremrangebyrank(key, 0, -(LAST_N + 1))
+                r.lpush(key, value)
+                r.ltrim(key, 0, LAST_N - 1)
             except (redis.RedisError, json.JSONDecodeError) as e:
                 print(f"Bridge error: {e}", file=sys.stderr)
     except KafkaError as e:
