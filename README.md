@@ -1,6 +1,6 @@
 # Dragonfly Ingestion Bridge POC
 
-**Deliverable for CashCache:** A self-contained deployable package that demonstrates ingestion from Kafka into Dragonfly, and a data model that supports **"last 10 trades" per security**, including a way to query and validate the data.
+**Deliverable:** A self-contained deployable package that demonstrates ingestion from Kafka into Dragonfly, and a data model that supports **"last 10 trades" per security**, including a way to query and validate the data.
 
 ---
 
@@ -200,6 +200,14 @@ Or use the helper script (runs curl and pretty-prints JSON):
 ./query_api.sh MSFT         # last 10 trades for MSFT
 ```
 
+| What you run | Endpoint | Curl equivalent |
+|--------------|----------|------------------|
+| `./query_api.sh` (no args) | health, securities, ticker AAPL | `curl -s http://localhost:8080/health`<br>`curl -s http://localhost:8080/securities`<br>`curl -s http://localhost:8080/ticker/AAPL` |
+| `./query_api.sh health` | Health only | `curl -s http://localhost:8080/health` |
+| `./query_api.sh securities` | List of symbols | `curl -s http://localhost:8080/securities` |
+| `./query_api.sh ticker AAPL` | Last 10 trades for AAPL | `curl -s http://localhost:8080/ticker/AAPL` |
+| `./query_api.sh MSFT` | Last 10 trades for MSFT | `curl -s http://localhost:8080/ticker/MSFT` |
+
 ### Option B — Benchmark (query latency + throughput)
 
 With the POC running and data flowing (so Dragonfly has `trades:*` keys), run:
@@ -308,4 +316,4 @@ README.md               # This file — setup, run, and validate the POC
 
 ---
 
-This README is intended for the CashCache DevOps engineer: follow the steps above to set up, run, and validate the POC on your infrastructure.
+This README is intended for the DevOps engineer: follow the steps above to set up, run, and validate the POC on your infrastructure.
