@@ -45,18 +45,18 @@ if [ "$ready" -eq 1 ]; then
 else
   echo "Timeout: no symbol with 10 trades after ${MAX_WAIT}s. Open the dashboard anyway; data may appear shortly."
 fi
+echo "  Query API URL:   http://localhost:8080"
+echo "  API Docs URL:    http://localhost:8080/apidocs"
+echo "  Dashboard URL:  http://localhost:8080/dashboard"
+echo "  RedisInsight URL: http://localhost:5540"
+echo "  Dragonfly admin URL: http://localhost:9999"
 echo ""
-echo "  Demo dashboard:  http://localhost:8080/dashboard"
-echo "    (view symbols, last 10 trades, run benchmark in real time)"
-echo ""
-echo "  API:             http://localhost:8080"
-echo "  RedisInsight:    http://localhost:5540"
 if [ "$USE_REDIS" = true ]; then
-  echo "    Add DB 1: host=dragonfly, port=6379 (Redis — POC data)"
-  echo "    Add DB 2: host=dragonfly-alt, port=6379 (Dragonfly — compare)"
+  echo "  RedisInsight — Add DB 1: host=dragonfly, port=6379 (Redis — POC data)"
+  echo "                 Add DB 2: host=dragonfly-alt, port=6379 (Dragonfly — compare)"
 else
-  echo "    Add DB 1: host=dragonfly, port=6379 (Dragonfly — POC data)"
-  echo "    Add DB 2: host=redis, port=6379 (Redis — compare)"
+  echo "  RedisInsight — Add DB 1: host=dragonfly, port=6379 (Dragonfly — POC data)"
+  echo "                 Add DB 2: host=redis, port=6379 (Redis — compare)"
 fi
 echo "  Store:           localhost:6379 ($STORE_NAME)"
 echo ""
