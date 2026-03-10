@@ -20,7 +20,31 @@ STORE_NAME=$([ "$USE_REDIS" = true ] && echo "Redis" || echo "Dragonfly")
 echo "Starting POC (Kafka, $STORE_NAME, bridge, producer, API, RedisInsight)..."
 $COMPOSE $PROFILES up -d
 echo ""
-echo "POC is starting. Wait 30–60s for data, then run: ./wait_poc_ready.sh"
+echo "Waiting for at least one symbol with 10 trades (API and bridge)..."
+BASE="${BASE_URL:-http://localhost:8080}"
+MAX_WAIT="${POC_WAIT_MAX:-120}"
+INTERVAL=5
+elapsed=0
+ready=0
+while [ "$elapsed" -lt "$MAX_WAIT" ]; do
+  body=$(curl -s "$BASE/securities" 2>/dev/null) || true
+  sym=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); s=d.get('securities'); print(s[0] if s and len(s)>0 else '')" 2>/dev/null) || true
+  if [ -n "$sym" ]; then
+    ticker=$(curl -s "$BASE/ticker/$sym" 2>/dev/null) || true
+    if [ -n "$ticker" ] && echo "$ticker" | python3 -c "import sys,json; d=json.load(sys.stdin); t=d.get('last_10_trades') or []; exit(0 if len(t)>=10 else 1)" 2>/dev/null; then
+      ready=1
+      break
+    fi
+  fi
+  echo "  ... (${elapsed}s / ${MAX_WAIT}s)"
+  sleep "$INTERVAL"
+  elapsed=$((elapsed + INTERVAL))
+done
+if [ "$ready" -eq 1 ]; then
+  echo "POC ready (10 trades for $sym)."
+else
+  echo "Timeout: no symbol with 10 trades after ${MAX_WAIT}s. Open the dashboard anyway; data may appear shortly."
+fi
 echo ""
 echo "  Demo dashboard:  http://localhost:8080/dashboard"
 echo "    (view symbols, last 10 trades, run benchmark in real time)"

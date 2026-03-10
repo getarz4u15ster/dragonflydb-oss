@@ -90,14 +90,13 @@ Wait 30–60 seconds for Kafka to be ready and for the producer/bridge to connec
 
 **Demo flow (dashboard-first):** Run the same story every time:
 
-1. **Start** — `./start_poc.sh` (or `./start_poc.sh redis`).
-2. **Wait until ready** — `./wait_poc_ready.sh` (prints "POC ready" when data is flowing).
-3. **Open the dashboard** — http://localhost:8080/dashboard  
+1. **Start** — `./start_poc.sh` (or `./start_poc.sh redis`). The script waits until at least one symbol has 10 trades and prints **POC ready** (or run `./wait_poc_ready.sh` later if you need to check again).
+2. **Open the dashboard** — http://localhost:8080/dashboard  
    From the dashboard you can:
    - **View symbols and last 10 trades** — Click a symbol to see live trade data (auto-refreshes).
    - **Run the benchmark** — Click "Run benchmark" to see latency and throughput in real time.
-4. **Optional: scale the bridge** — In a terminal, `./scale_out_poc.sh 2`, then run the benchmark again from the dashboard to compare.
-5. **Optional: inspect the store** — Open [RedisInsight](http://localhost:5540) to browse keys and run Redis commands.
+3. **Optional: scale the bridge** — In a terminal, `./scale_out_poc.sh 2`, then run the benchmark again from the dashboard to compare.
+4. **Optional: inspect the store** — Open [RedisInsight](http://localhost:5540) to browse keys and run Redis commands.
 
 ### Dragonfly UI (optional): RedisInsight
 
@@ -340,7 +339,7 @@ api_poc.py              # GET /ticker/<symbol>, /securities, /health
 scripts/benchmark_poc.py    # Benchmark last-10-trades query latency + throughput
 start_poc.sh            # Start POC with RedisInsight; optional: start_poc.sh redis for Redis 7
 stop_poc.sh             # Stop POC (uses same store as start; use down -v to remove volumes)
-wait_poc_ready.sh       # Wait until API returns securities, then print "POC ready"
+wait_poc_ready.sh       # Optional: wait until a symbol has 10 trades (start_poc.sh does this automatically)
 run_benchmark.sh        # Run benchmark (uses .venv if present)
 query_api.sh            # Curl the API (health, securities, ticker; pretty-printed JSON)
 scale_out_poc.sh        # Scale ingestion-bridge to N instances (Kafka consumer group)
