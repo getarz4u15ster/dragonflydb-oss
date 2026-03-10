@@ -70,9 +70,34 @@ This starts:
 - **Ingestion bridge** — consumes from Kafka and writes to Dragonfly (retries until Kafka is up)  
 - **Trade producer** — mock trades into Kafka topic `trades`  
 - **Query API** — HTTP API on port 8080  
-- **RedisInsight** (optional) — start with `--profile with-ui` to get a GUI at http://localhost:5540 (see "Dragonfly UI" below).
+- **RedisInsight** (optional) — start with `--profile with-ui` to get a GUI (see "Dragonfly UI" below).
 
-Wait 30–60 seconds for Kafka to be ready and for the producer/bridge to connect and stream data. Then validate with the commands below.
+### URLs at a glance
+
+| Service / endpoint | URL |
+|--------------------|-----|
+| **Demo dashboard** | **http://localhost:8080/dashboard** |
+| Query API (base) | http://localhost:8080 |
+| API docs (Swagger) | http://localhost:8080/apidocs |
+| Health | http://localhost:8080/health |
+| Securities | http://localhost:8080/securities |
+| Ticker (e.g. AAPL) | http://localhost:8080/ticker/AAPL |
+| RedisInsight | http://localhost:5540 |
+| Dragonfly admin | http://localhost:9999 |
+| Dragonfly metrics | http://localhost:9999/metrics |
+
+Wait 30–60 seconds for Kafka to be ready and for the producer/bridge to connect and stream data.
+
+**Demo flow (dashboard-first):** Run the same story every time:
+
+1. **Start** — `./start_poc.sh` (or `./start_poc.sh redis`).
+2. **Wait until ready** — `./wait_poc_ready.sh` (prints "POC ready" when data is flowing).
+3. **Open the dashboard** — http://localhost:8080/dashboard  
+   From the dashboard you can:
+   - **View symbols and last 10 trades** — Click a symbol to see live trade data (auto-refreshes).
+   - **Run the benchmark** — Click "Run benchmark" to see latency and throughput in real time.
+4. **Optional: scale the bridge** — In a terminal, `./scale_out_poc.sh 2`, then run the benchmark again from the dashboard to compare.
+5. **Optional: inspect the store** — Open [RedisInsight](http://localhost:5540) to browse keys and run Redis commands.
 
 ### Dragonfly UI (optional): RedisInsight
 
@@ -86,7 +111,7 @@ docker compose --profile with-ui up -d
 docker compose --profile with-ui up -d redisinsight
 ```
 
-**2. Open RedisInsight in your browser:** http://localhost:5540
+**2. Open RedisInsight in your browser:** see **RedisInsight** in the [URLs table](#urls-at-a-glance) above.
 
 **3. Add the POC store and (optionally) the other store.** You can add both Dragonfly and Redis so you can compare. Use the **service name** as the host (not `localhost`).
 
@@ -110,7 +135,7 @@ Leave **Username** and **Password** empty. Connection URL examples: `redis://dra
 
 **4. After connecting:** You'll see keys like `trades:AAPL`, `trades:MSFT`. Click a key to view the list (last 10 trades, newest at index 0), or use the CLI/Workbench to run `LRANGE trades:AAPL 0 9`.
 
-**Dragonfly admin port** (metrics/health only, no key browser): http://localhost:9999 and http://localhost:9999/metrics
+**Dragonfly admin** (metrics/health only, no key browser): see **Dragonfly admin** and **Dragonfly metrics** in the [URLs table](#urls-at-a-glance) above.
 
 ### Scale out (optional)
 
@@ -152,7 +177,16 @@ The scale-out script ensures the `trades` topic has enough partitions, then scal
 
 ## Step 3 — Validate: query data per security
 
-### Option A — REST API (recommended)
+### Option A — Dashboard (recommended)
+
+Open the **demo dashboard:** [http://localhost:8080/dashboard](http://localhost:8080/dashboard)
+
+- **Symbols and last 10 trades** — Click a symbol to see live data (auto-refreshes every 5s).
+- **Benchmark** — Click "Run benchmark" to run the same benchmark as `./run_benchmark.sh` and watch progress and results in real time.
+
+No terminal needed for the core demo. For API docs (Swagger) and raw endpoints, see the [URLs table](#urls-at-a-glance) above.
+
+### Option B — REST API (curl / query_api.sh)
 
 **List securities that have data:**
 
@@ -208,7 +242,7 @@ Or use the helper script (runs curl and pretty-prints JSON):
 | `./query_api.sh ticker AAPL` | Last 10 trades for AAPL | `curl -s http://localhost:8080/ticker/AAPL` |
 | `./query_api.sh MSFT` | Last 10 trades for MSFT | `curl -s http://localhost:8080/ticker/MSFT` |
 
-### Option B — Benchmark (query latency + throughput)
+### Option C — Benchmark (script: run_benchmark.sh)
 
 With the POC running and data flowing (so Dragonfly has `trades:*` keys), run:
 
@@ -228,7 +262,7 @@ Throughput: 6,653 ops/sec
 ---------------------------------------------------
 ```
 
-### Option C — redis-cli (directly against Dragonfly)
+### Option D — redis-cli (directly against Dragonfly)
 
 If you have `redis-cli` on your host (e.g. `brew install redis` on Mac). These commands mirror what the query API does.
 
@@ -306,6 +340,7 @@ api_poc.py              # GET /ticker/<symbol>, /securities, /health
 scripts/benchmark_poc.py    # Benchmark last-10-trades query latency + throughput
 start_poc.sh            # Start POC with RedisInsight; optional: start_poc.sh redis for Redis 7
 stop_poc.sh             # Stop POC (uses same store as start; use down -v to remove volumes)
+wait_poc_ready.sh       # Wait until API returns securities, then print "POC ready"
 run_benchmark.sh        # Run benchmark (uses .venv if present)
 query_api.sh            # Curl the API (health, securities, ticker; pretty-printed JSON)
 scale_out_poc.sh        # Scale ingestion-bridge to N instances (Kafka consumer group)
