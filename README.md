@@ -58,6 +58,8 @@ To use **Redis 7** instead of Dragonfly as the in-memory store (same scripts, sa
 ./start_poc.sh redis
 ```
 
+Add **`--clean`** to do a full teardown and network prune before starting (fixes Docker "network not found" errors after a restart or manual `docker network prune`): e.g. `./start_poc.sh redis --clean` or `./start_poc.sh --clean`.
+
 The choice is saved (in `.poc-store`); `./stop_poc.sh` and the scale scripts use the same store automatically. All commands (query API, benchmark, redis-cli, RedisInsight) work the same—host `dragonfly`, port 6379.
 
 Or without RedisInsight: `docker compose up -d`
@@ -337,7 +339,7 @@ ingestion/kafka_bridge.py   # Kafka consumer → Dragonfly LIST (LPUSH + LTRIM 0
 producer/trade_producer.py  # Mock trade producer → Kafka topic "trades"
 api_poc.py              # GET /ticker/<symbol>, /securities, /health
 scripts/benchmark_poc.py    # Benchmark last-10-trades query latency + throughput
-start_poc.sh            # Start POC with RedisInsight; optional: start_poc.sh redis for Redis 7
+start_poc.sh            # Start POC with RedisInsight; optional: redis (Redis 7), --clean (teardown + network prune)
 stop_poc.sh             # Stop POC (uses same store as start; use down -v to remove volumes)
 wait_poc_ready.sh       # Optional: wait until a symbol has 10 trades (start_poc.sh does this automatically)
 run_benchmark.sh        # Run benchmark (uses .venv if present)

@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 # Start the POC. Demo runs from the dashboard at http://localhost:8080/dashboard
-# Usage: ./start_poc.sh [redis]   — default: Dragonfly; use "redis" for Redis 7.
+# Usage: ./start_poc.sh [redis] [--clean]
+#   redis = use Redis 7 as main store; --clean = down + network prune before up (fixes "network not found").
 set -e
 cd "$(dirname "$0")"
 
 USE_REDIS=false
-if [ "${1:-}" = "redis" ]; then
-  USE_REDIS=true
+CLEAN_START=false
+for arg in "$@"; do
+  if [ "$arg" = "redis" ]; then USE_REDIS=true; fi
+  if [ "$arg" = "--clean" ]; then CLEAN_START=true; fi
+done
+
+if [ "$USE_REDIS" = true ]; then
   echo "redis" > .poc-store
   COMPOSE="docker compose -f docker-compose.yml -f docker-compose.redis.yml"
   PROFILES="--profile with-ui"
@@ -14,6 +20,12 @@ else
   echo "dragonfly" > .poc-store
   COMPOSE="docker compose"
   PROFILES="--profile with-ui --profile with-redis"
+fi
+
+if [ "$CLEAN_START" = true ]; then
+  echo "Clean start: tearing down and pruning networks..."
+  $COMPOSE $PROFILES down 2>/dev/null || true
+  docker network prune -f
 fi
 
 STORE_NAME=$([ "$USE_REDIS" = true ] && echo "Redis" || echo "Dragonfly")
