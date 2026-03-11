@@ -21,3 +21,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# draw.io backups
+*.drawio.bkp
