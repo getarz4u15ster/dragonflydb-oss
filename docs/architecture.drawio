@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.1 Chrome/142.0.7444.265 Electron/39.8.0 Safari/537.36" version="29.6.1">
   <diagram name="Dragonfly Ingestion Bridge POC" id="poc-arch">
-    <mxGraphModel dx="949" dy="680" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1234" dy="884" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -11,7 +11,7 @@
           <mxGeometry height="60" width="140" x="240" y="200" as="geometry" />
         </mxCell>
         <mxCell id="producer" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#0B0B0B;" value="Trade Producer&#xa;(mock trades)" vertex="1">
-          <mxGeometry height="50" width="140" x="40" y="80" as="geometry" />
+          <mxGeometry height="50" width="140" x="240" y="50" as="geometry" />
         </mxCell>
         <mxCell id="bridge" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#0B0B0B;" value="Ingestion Bridge&#xa;(Kafka consumer)" vertex="1">
           <mxGeometry height="70" width="160" x="450" y="195" as="geometry" />
@@ -19,11 +19,17 @@
         <mxCell id="dragonfly" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#0B0B0B;" value="Dragonfly&#xa;trades:SYMBOL (LIST)&#xa;LPUSH + LTRIM 0 9" vertex="1">
           <mxGeometry height="60" width="200" x="740" y="200" as="geometry" />
         </mxCell>
-        <mxCell id="api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#0B0B0B;" value="Query API&#xa;/ticker/" vertex="1">
-          <mxGeometry height="60" width="160" x="760" y="370" as="geometry" />
+        <mxCell id="api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#0B0B0B;" value="Query API (Flask)&#xa;/health, /securities, /ticker/&lt;sym&gt;&#xa;/dashboard, /apidocs&#xa;/benchmark/status, /benchmark/start" vertex="1">
+          <mxGeometry height="80" width="200" x="740" y="310" as="geometry" />
         </mxCell>
-        <mxCell id="redisinsight" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=2;fontColor=#0B0B0B;" value="RedisInsight&#xa;(optional UI)" vertex="1">
-          <mxGeometry height="50" width="140" x="770" y="70" as="geometry" />
+        <mxCell id="dashboard" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#0B0B0B;" value="Dashboard&#xa;(demo UI)&#xa;symbols, last 10 trades,&#xa;run benchmark (real time)" vertex="1">
+          <mxGeometry height="70" width="160" x="760" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="api-docs" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontColor=#0B0B0B;" value="API Docs&#xa;(Swagger / OpenAPI)&#xa;/apidocs — try endpoints" vertex="1">
+          <mxGeometry height="60" width="160" x="970" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="redisinsight" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=2;fontColor=#0B0B0B;" value="RedisInsight&#xa;(optional — browse keys)" vertex="1">
+          <mxGeometry height="50" width="140" x="1010" y="120" as="geometry" />
         </mxCell>
         <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=1;fontSize=14;" value="Dragonfly Ingestion Bridge POC" vertex="1">
           <mxGeometry height="30" width="240" x="390" y="10" as="geometry" />
@@ -35,16 +41,42 @@
           <mxGeometry height="50" relative="1" width="50" as="geometry" />
         </mxCell>
         <mxCell id="e3" edge="1" parent="1" source="kafka" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="bridge" value="consumes">
-          <mxGeometry height="50" relative="1" width="50" as="geometry" />
+          <mxGeometry height="50" relative="1" width="50" x="-0.1429" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="400" y="230" />
+            </Array>
+          </mxGeometry>
         </mxCell>
         <mxCell id="e4" edge="1" parent="1" source="bridge" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=#D5E8D4;fontColor=#0B0B0B;" target="dragonfly" value="LPUSH + LTRIM">
-          <mxGeometry height="50" relative="1" width="50" as="geometry" />
+          <mxGeometry height="50" relative="1" width="50" x="-0.0769" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="610" y="230" as="sourcePoint" />
+            <mxPoint x="740" y="230" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="e5" edge="1" parent="1" source="dragonfly" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="api" value="LRANGE 0 9">
           <mxGeometry height="50" relative="1" width="50" as="geometry" />
         </mxCell>
-        <mxCell id="e6" edge="1" parent="1" source="dragonfly" style="endArrow=classic;html=1;rounded=0;dashed=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="redisinsight" value="browse">
+        <mxCell id="e5a" edge="1" parent="1" source="api" style="endArrow=classic;html=1;rounded=0;dashed=1;" value="serves">
+          <mxGeometry height="50" relative="1" width="50" x="-0.3333" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="840" y="470" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5b" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;dashed=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="api-docs" value="serves">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="940" y="350" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="dragonfly" style="endArrow=classic;html=1;rounded=0;dashed=1;exitX=1;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=1;entryDx=0;entryDy=0;" target="redisinsight" value="browse">
           <mxGeometry height="50" relative="1" width="50" as="geometry" />
+        </mxCell>
+        <mxCell id="requirements-note" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff9e6;strokeColor=#d6b656;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=10;fontColor=#0B0B0B;" value="&lt;div&gt;&lt;font style=&quot;color: rgb(11, 11, 11);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;font style=&quot;color: rgb(11, 11, 11);&quot;&gt;&lt;div&gt;&lt;font style=&quot;color: rgb(11, 11, 11);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;color: rgb(11, 11, 11);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;color: rgb(11, 11, 11);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;color: rgb(11, 11, 11);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;br&gt;&lt;br&gt;• Trade schema: symbol, price, quantity, timestamp (ISO8601), trade_id — Producer + Bridge store full JSON.&lt;/font&gt;&lt;div&gt;&lt;font style=&quot;color: rgb(11, 11, 11);&quot;&gt;&lt;br&gt;• Ingestion: ~50k eps, spikes to 500k; no backpressure to Kafka — Pull-based consumer; scale bridge + partitions for production.&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;color: rgb(11, 11, 11);&quot;&gt;&lt;br&gt;• Symbol scale: 12k symbols, 500–1k hot — One LIST per symbol (trades:SYMBOL); scales to 12k+ keys.&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;color: rgb(11, 11, 11);&quot;&gt;&lt;br&gt;• Retention: last 10 trades per symbol only — LPUSH + LTRIM 0 9 (see Bridge → Dragonfly).&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;color: rgb(11, 11, 11);&quot;&gt;&lt;br&gt;• Frontend query: REST API → data store; &amp;lt;1 ms from store — Query API uses LRANGE 0 9; benchmark shows sub-ms latency.&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;color: rgb(11, 11, 11);&quot;&gt;&lt;br&gt;• Client: Redis-compatible; &amp;lt;1 ms target — Use official Redis client (redis-py, ioredis, go-redis, Jedis, etc.); Dragonfly-compatible.&lt;/font&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="250" width="940" x="40" y="600" as="geometry" />
+        </mxCell>
+        <mxCell id="stakeholder-note" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=10;fontStyle=3;fontColor=#666666;" value="&lt;font style=&quot;color: rgb(11, 11, 11); font-size: 12px;&quot;&gt;Stakeholder ask: Simple, reproducible bridge into Dragonfly so frontend can query live data in sub-milliseconds&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="850" x="100" y="610" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
