@@ -37,7 +37,12 @@
         <mxCell id="e1" edge="1" parent="1" source="zookeeper" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="kafka" value="">
           <mxGeometry height="50" relative="1" width="50" as="geometry" />
         </mxCell>
-        <mxCell id="e2" edge="1" parent="1" source="producer" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="kafka" value="produces">
+        <mxCell id="uiyr5fCWYTnJn_GBs-V9-4" connectable="0" parent="e1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Coodiantion" vertex="1">
+          <mxGeometry relative="1" x="0.0375" as="geometry">
+            <mxPoint x="-6" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="producer" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="kafka" value="Trade Producers">
           <mxGeometry height="50" relative="1" width="50" as="geometry" />
         </mxCell>
         <mxCell id="e3" edge="1" parent="1" source="kafka" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="bridge" value="consumes">
