@@ -10,6 +10,9 @@
 2. **Storage** — The store (Dragonfly or Redis) holds one LIST per security (e.g. `trades:AAPL`), keeping only the last 10 trades (LPUSH + LTRIM).
 3. **Validation** — You can query Dragonfly via REST API or `redis-cli` and see data per security.
 
+> **Scope of this POC**  
+> This package demonstrates **architecture fit** and **query pattern validity**. It does **not**, by itself, certify production throughput ceilings without formal load testing. The demo runs at a low rate; production targets (e.g. 50k eps average, 500k eps spikes) require scaling partitions and bridge instances and must be validated with proper load tests.
+
 ---
 
 ## Requirements (from discovery)
@@ -19,11 +22,27 @@ This POC is aligned with CashCache’s answers from discovery:
 | Topic | Requirement | How the POC addresses it |
 |-------|-------------|---------------------------|
 | **Trade message schema** | Flat JSON: `symbol` (string), `price` (float), `quantity` (integer), `timestamp` (ISO8601 string), `trade_id` (UUID) | Producer emits this schema. Bridge accepts it and stores full JSON in Dragonfly. |
-| **Ingestion rate** | ~50k eps average; spikes to 500k eps; no backpressure to Kafka, low frontend latency | Bridge uses Kafka consumer (pull-based), so it does not push back to Kafka. Scale bridge instances and topic partitions to handle throughput; Dragonfly supports high write/read rates. This POC runs at low rate for demos; production would scale partitions + bridges. |
+| **Ingestion rate** | ~50k eps average; spikes to 500k eps; no backpressure to Kafka, low frontend latency | Bridge uses Kafka consumer (pull-based), so it does not push back to Kafka. Scale bridge instances and topic partitions to handle throughput; Dragonfly supports high write/read rates. **This POC runs at a low demo rate only;** production would scale partitions + bridges and requires formal load testing to certify throughput. |
 | **Symbol scale** | ~12k symbols globally; 500–1k “hot” at any time | Data model is one LIST per symbol (`trades:SYMBOL`); scales to 12k+ keys. Mock producer uses a subset of symbols for the demo. |
 | **Retention** | Last 10 trades per symbol only (no longer window for POC) | Bridge runs `LPUSH` then `LTRIM 0 9` so at most 10 elements per key (newest at head). |
 | **Frontend / query** | REST API from mobile app → backend → data store; &lt;1 ms from data store | This repo’s Query API is the backend: it talks to Dragonfly over the Redis protocol. Use `./run_benchmark.sh` to measure latency (typically sub‑ms). |
 | **Client library** | Backend will query Dragonfly via Redis-compatible client; &lt;1 ms target | **Recommended:** Use the official Redis client for your stack. Examples: **Python** [redis-py](https://github.com/redis/redis-py), **Node** [ioredis](https://github.com/redis/ioredis) or [node-redis](https://github.com/redis/node-redis), **Go** [go-redis](https://github.com/redis/go-redis), **Java** [Jedis](https://github.com/redis/jedis) or [Lettuce](https://github.com/lettuce-io/lettuce-core). All are Dragonfly-compatible. This POC’s API uses **redis-py**. |
+
+---
+
+## Business value and outcomes
+
+This POC is built to show **why** the architecture matters, not just how it works. Outcomes that matter to product and platform decisions:
+
+| Outcome | What this POC supports |
+|--------|-------------------------|
+| **Fewer nodes** | A single Dragonfly instance can serve high read/write rates (multi-threaded, Redis protocol). The demo runs one store; production sizing is a function of throughput and memory, not “one node per core” assumptions. |
+| **Lower latency** | Sub-millisecond reads from the data store for “last 10 trades” (see `./run_benchmark.sh` and the dashboard benchmark). The query path is simple: one `LRANGE` per symbol. |
+| **Simpler architecture** | One in-memory store for the “last 10” use case; no separate cache + DB split for this pattern. Kafka → bridge → Dragonfly → API; the bridge is a thin consumer that does LPUSH + LTRIM. |
+| **Lower cost per workload** | Fewer nodes and a straightforward data model reduce operational footprint. You can compare Dragonfly vs Redis 7 in this repo (same API, same benchmark) to evaluate cost/performance for your workload. |
+| **Easier Redis-compatible adoption** | Backend teams already using Redis clients can point at Dragonfly with no code change. This repo uses standard Redis clients and exposes both Dragonfly and Redis so you can run **Redis comparison mode** (`./start_poc.sh` vs `./start_poc.sh redis`) and validate behavior and latency side by side. |
+
+The **benchmark script** and **dashboard benchmark** give you repeatable latency and throughput numbers; use them (and formal load tests) to turn this POC into production sizing and SLAs.
 
 ---
 
@@ -322,6 +341,22 @@ This is the simplest "last 10" pattern: no scores, insertion order is recency. Q
 | No data in `/ticker/AAPL` or `trades:AAPL` | Wait 30–60 s after `up -d`; the producer and bridge need to start. Try `curl http://localhost:8080/securities` again. |
 | `Connection refused` to Kafka or Dragonfly | Ensure all containers are up: `docker compose ps`. Check logs: `docker compose logs ingestion-bridge` and `docker compose logs trade-producer`. |
 | Port 6379 or 9092 in use | Stop the process using that port or change the compose ports. |
+
+---
+
+## Failure modes and resilience
+
+For platform and SRE evaluation, below is how this **demo** behaves under failure. Production designs should formalize these with runbooks and SLAs.
+
+| Scenario | Observed behavior in this POC |
+|----------|-------------------------------|
+| **Bridge restart** | The ingestion bridge consumes from Kafka in a consumer group. On restart it rejoins the group and resumes from committed offsets. Messages produced while the bridge was down remain in the topic; after restart the bridge catches up. No backpressure to Kafka. |
+| **Dragonfly restart** | Dragonfly is in-memory. A restart **wipes all `trades:*` data** in this setup. The bridge will reconnect and start writing again; the producer keeps sending to Kafka. Data in Dragonfly repopulates as new messages are consumed. Queries for symbols with no data yet return empty or 404 until the bridge has written again. |
+| **Kafka unavailability** | If Kafka is down, the bridge retries connecting (see bridge logs). The producer cannot send; no new trades reach the topic. Once Kafka is back, producer and bridge resume. Messages are not lost from Kafka’s perspective (topic retention applies). Dragonfly only has whatever the bridge has already written. |
+| **Data loss (this demo)** | This POC does not persist Dragonfly to disk by default. Any Dragonfly or host failure loses in-memory state. Kafka retains messages per topic configuration; the bridge can replay from offsets after a store restart, but this demo does not implement replay—it only ingests forward. |
+| **Persistence assumptions** | The demo assumes **ephemeral store**: “last 10 trades” is a rolling window. There is no AOF/RDB in the default compose. For production you would enable Dragonfly persistence and/or snapshotting if you need durability; the data model (last 10 only) is still best-effort real-time, not a durable audit log. |
+
+Use these behaviors to design runbooks (e.g. “bridge down” = catch-up on restart; “Dragonfly down” = repopulate from Kafka if you add replay, or accept temporary empty state in this demo).
 
 ---
 

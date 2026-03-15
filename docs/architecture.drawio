@@ -83,6 +83,9 @@
         <mxCell id="stakeholder-note" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=10;fontStyle=3;fontColor=#666666;" value="&lt;font style=&quot;color: rgb(11, 11, 11); font-size: 12px;&quot;&gt;Stakeholder ask: Simple, reproducible bridge into Dragonfly so frontend can query live data in sub-milliseconds&lt;/font&gt;" vertex="1">
           <mxGeometry height="40" width="850" x="100" y="610" as="geometry" />
         </mxCell>
+        <mxCell id="business-outcomes" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fontSize=10;fontColor=#0B0B0B;" value="&lt;b&gt;Business value and outcomes&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;• &lt;b&gt;Fewer nodes&lt;/b&gt; — Single Dragonfly serves high read/write rates; production sizing by throughput and memory.&lt;br/&gt;• &lt;b&gt;Lower latency&lt;/b&gt; — Sub-ms reads for last 10 trades (benchmark + dashboard).&lt;br/&gt;• &lt;b&gt;Simpler architecture&lt;/b&gt; — One in-memory store, thin bridge; no cache+DB split for this pattern.&lt;br/&gt;• &lt;b&gt;Lower cost per workload&lt;/b&gt; — Fewer nodes; compare Dragonfly vs Redis in this repo (./start_poc.sh redis).&lt;br/&gt;• &lt;b&gt;Easier Redis-compatible adoption&lt;/b&gt; — Same Redis clients, no code change; Redis comparison mode and benchmark validate behavior." vertex="1">
+          <mxGeometry height="130" width="940" x="40" y="860" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
