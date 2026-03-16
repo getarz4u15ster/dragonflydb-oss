@@ -1,10 +1,10 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.1 Chrome/142.0.7444.265 Electron/39.8.0 Safari/537.36" version="29.6.1">
   <diagram name="Dragonfly Ingestion Bridge POC" id="poc-arch">
-    <mxGraphModel dx="1339" dy="1719" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1511" dy="1790" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="zookeeper" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#0B0B0B;" value="Zookeeper&lt;br&gt;(Confluent)&lt;br&gt;&lt;b&gt;localhost:2181&lt;/b&gt;" vertex="1">
+        <mxCell id="zookeeper" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#0B0B0B;" value="&lt;b&gt;Zookeeper&lt;br&gt;&lt;/b&gt;&lt;br&gt;(Confluent)&lt;br&gt;&lt;b&gt;localhost:2181&lt;/b&gt;" vertex="1">
           <mxGeometry height="60" width="120" x="510" y="180" as="geometry" />
         </mxCell>
         <mxCell id="kafka" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontColor=#0B0B0B;" value="&lt;b&gt;Kafka&lt;br&gt;&lt;br&gt;&lt;/b&gt;topic: trades&lt;br&gt;&lt;b&gt;localhost:9092&lt;/b&gt;" vertex="1">
@@ -96,7 +96,7 @@
         </mxCell>
         <mxCell id="dhKzzRPA7cLrjn2aB0tV-5" connectable="0" parent="dhKzzRPA7cLrjn2aB0tV-4" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&lt;b&gt;LPUSH | LTRIM&lt;/b&gt;" vertex="1">
           <mxGeometry relative="1" x="-0.0825" y="-1" as="geometry">
-            <mxPoint as="offset" />
+            <mxPoint y="-1" as="offset" />
           </mxGeometry>
         </mxCell>
       </root>
